@@ -1,0 +1,9 @@
+{
+  "name": "scout",
+  "private": true,
+  "type": "module",
+  "description": "Track 3 (Scout) — source extraction + Neo4j writes. Provisional; Track 2 owns repo-root scaffolding.",
+  "scripts": {
+    "dev": "node dev.ts"
+  }
+}
