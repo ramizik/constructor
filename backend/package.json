@@ -6,7 +6,8 @@
     "daytona:test": "tsx src/daytona/test-connection.ts",
     "analyze:test": "tsx src/daytona/run-analyze-job.ts",
     "neo4j:test": "tsx src/neo4j/test-connection.ts",
-    "neo4j:seed": "tsx src/neo4j/seed.ts"
+    "neo4j:seed": "tsx src/neo4j/seed.ts",
+    "daytona:serve": "tsx src/daytona/server.ts"
   },
   "dependencies": {
     "@daytona/sdk": "^0.194.0",
