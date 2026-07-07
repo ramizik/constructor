@@ -185,6 +185,8 @@ export default function DesignProto() {
         const res: ScoutResult = await service.triggerScout({ mode: 'auto' });
         if (cancelled) return;
         if (res.done) { setScoutExhausted(true); setScoutOn(false); }
+        // Refresh graph after scout writes nodes (don't wait for realtime)
+        setTimeout(() => { if (!cancelled) service.getGraph().then(setGraph); }, 3000);
       } catch { if (!cancelled) setScoutOn(false); }
     };
     void tick();
@@ -194,7 +196,34 @@ export default function DesignProto() {
 
   const runAnalyze = useCallback(async (params: AnalyzeParams) => {
     setModal(false);
-    await service.triggerAnalyze(params);
+    const { job_id } = await service.triggerAnalyze(params);
+
+    // Poll until done — realtime subscription may miss events
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) { clearInterval(poll); return; } // 60s max
+      const allJobs = await service.getJobs();
+      const job = allJobs.find(j => j.id === job_id);
+      if (!job) return;
+      setJobs(cur => {
+        const idx = cur.findIndex(j => j.id === job.id);
+        if (idx === -1) return [job, ...cur];
+        const next = [...cur]; next[idx] = job; return next;
+      });
+      if (job.status === 'done' || job.status === 'error') {
+        clearInterval(poll);
+        if (job.status === 'done') {
+          setSelectedRunId(job.id);
+          if (job.result_ref) {
+            const art = await service.getArtifact(job.result_ref);
+            if (art) setArtifacts(cur => ({ ...cur, [job.result_ref!]: art }));
+          }
+          service.getGraph().then(setGraph);
+          service.getRunHistory().then(setRunHistory);
+        }
+      }
+    }, 2000);
   }, []);
 
   // derived
