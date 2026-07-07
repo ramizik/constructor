@@ -1,0 +1,228 @@
+{
+  "components": [
+    {
+      "id": "webhook_1",
+      "provider": "webhook",
+      "name": "Analyze Trigger",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "webhook"
+      },
+      "ui": {
+        "position": {
+          "x": 20,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 66
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "question_1",
+      "provider": "question",
+      "name": "Wrap Payload",
+      "config": {
+        "type": "question"
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "webhook_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 240,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 66
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "agent_rocketride_1",
+      "provider": "agent_rocketride",
+      "name": "RocketRide Orchestrator",
+      "config": {
+        "agent_description": "Relays the pareto/ranking payload from trigger-analyze to the Daytona job server (after nudging Scout to refresh) and returns the raw Artifact JSON verbatim.",
+        "instructions": [
+          "You will receive, as your input question, the raw JSON body of an HTTP POST request. Its exact shape is: { \"jobType\": \"pareto\" | \"ranking\", \"data\": [ { \"technique_id\": string, \"technique\": string, \"tops_w\": number, \"memory_mb\": number, \"higher_is_better\": { \"tops_w\": boolean, \"memory_mb\": boolean } }, ... ] }. Parse it exactly as given. Do not alter, reformat, round, or invent any field or value.",
+          "Step 1 (best-effort, non-blocking): call the http_request tool to send a POST request to ${ROCKETRIDE_TRIGGER_SCOUT_URL} with header Content-Type: application/json and body {} to kick off a fresh Scout run. No Authorization header is needed (this endpoint is unauthenticated). Scout runs autonomously in the background once triggered — do not wait for it to finish and do not inspect its response. If this call errors, fails, or the URL is unreachable, ignore the failure completely and move on immediately. Never retry this step.",
+          "Step 2 (required): call the http_request tool to send a POST request to ${ROCKETRIDE_DAYTONA_URL} with header Content-Type: application/json and a body that is EXACTLY the JSON object you received as input in this question (the full { jobType, data } object, byte-for-byte unmodified — same key order not required, but every value must be identical and unmodified).",
+          "Step 3 (required): your final answer must be ONLY the raw JSON response body returned by the Step 2 HTTP call, reproduced verbatim. Do not add commentary, explanations, markdown formatting, or code fences. Do not wrap it in quotes or escape it as a string.",
+          "If Step 2 fails, times out, or does not return valid JSON, your final answer must instead be exactly this literal JSON, verbatim, and nothing else: {\"kind\":\"table\",\"title\":\"RocketRide pipeline error\",\"columns\":[\"error\"],\"rows\":[[\"Daytona call via RocketRide failed\"]]}"
+        ],
+        "max_waves": 6,
+        "parameters": {}
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "question_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 460,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 86
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "llm_minimax_1",
+      "provider": "llm_minimax",
+      "name": "Orchestrator LLM",
+      "config": {
+        "profile": "minimax-m3",
+        "minimax-m3": {
+          "apikey": "${ROCKETRIDE_MINIMAX_KEY}"
+        },
+        "parameters": {}
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_rocketride_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 350,
+          "y": 360
+        },
+        "measured": {
+          "width": 150,
+          "height": 66
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "memory_internal_1",
+      "provider": "memory_internal",
+      "name": "Orchestrator Memory",
+      "config": {
+        "type": "memory_internal"
+      },
+      "control": [
+        {
+          "classType": "memory",
+          "from": "agent_rocketride_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 520,
+          "y": 360
+        },
+        "measured": {
+          "width": 150,
+          "height": 66
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "tool_http_request_1",
+      "provider": "tool_http_request",
+      "name": "HTTP Relay Tool",
+      "config": {
+        "type": "tool_http_request",
+        "allowGET": true,
+        "allowPOST": true,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": false,
+        "allowOPTIONS": false,
+        "urlWhitelist": [
+          {
+            "whitelistPattern": "^https://sixty-webs-relate\\.loca\\.lt/.*$"
+          },
+          {
+            "whitelistPattern": "^https://api\\.butterbase\\.ai/.*$"
+          }
+        ],
+        "rateLimitPerSecond": 10,
+        "rateLimitPerMinute": 100,
+        "maxConcurrentRequests": 5
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_rocketride_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 690,
+          "y": 360
+        },
+        "measured": {
+          "width": 150,
+          "height": 40
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "name": "Return Artifact",
+      "config": {
+        "laneName": "answers"
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_rocketride_1"
+        }
+      ],
+      "ui": {
+        "position": {
+          "x": 680,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 66
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    }
+  ],
+  "source": "webhook_1",
+  "project_id": "6d6b6046-d0f6-4350-a747-2174c58daa18",
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  },
+  "version": 1,
+  "isLocked": false,
+  "snapToGrid": true,
+  "snapGridSize": [
+    10,
+    10
+  ]
+}
