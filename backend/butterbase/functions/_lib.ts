@@ -4,7 +4,7 @@ export interface Env {
   BUTTERBASE_APP_ID: string;
   BUTTERBASE_API_URL: string;
   BUTTERBASE_SERVICE_KEY: string;
-  NEO4J_HTTP_URL: string;
+  NEO4J_QUERY_URL: string;
   NEO4J_USER: string;
   NEO4J_PASSWORD: string;
   DAYTONA_API_URL: string;
@@ -12,37 +12,39 @@ export interface Env {
 }
 
 // ---------------------------------------------------------------------------
-// Neo4j HTTP (Cypher transactional endpoint)
+// Neo4j HTTP (Aura Query API v2 — not the legacy tx/commit endpoint, and not
+// bolt: the Function runtime only guarantees Web APIs (fetch), no raw TCP).
+// NEO4J_QUERY_URL is the full endpoint Aura hands out, e.g.
+// https://<dbid>.databases.neo4j.io/db/<dbid>/query/v2 — used as-is.
 // ---------------------------------------------------------------------------
 export async function cypher(
   query: string,
   params: Record<string, unknown> = {},
   env: Env,
 ) {
-  const url = `${env.NEO4J_HTTP_URL}/db/neo4j/tx/commit`;
-  const res = await fetch(url, {
+  const res = await fetch(env.NEO4J_QUERY_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Basic ' + btoa(`${env.NEO4J_USER}:${env.NEO4J_PASSWORD}`),
     },
-    body: JSON.stringify({ statements: [{ statement: query, parameters: params }] }),
+    body: JSON.stringify({ statement: query, parameters: params }),
   });
   const json = (await res.json()) as any;
   if (json.errors?.length) throw new Error(json.errors[0].message);
-  return json.results[0] as CypherResult;
+  return json.data as CypherResult;
 }
 
 export interface CypherResult {
-  columns: string[];
-  data: Array<{ row: unknown[] }>;
+  fields: string[];
+  values: unknown[][];
 }
 
 export function rows<T extends Record<string, unknown>>(result: CypherResult): T[] {
-  const { columns, data } = result;
-  return data.map((d) => {
+  const { fields, values } = result;
+  return values.map((row) => {
     const obj: Record<string, unknown> = {};
-    columns.forEach((col, i) => (obj[col] = d.row[i]));
+    fields.forEach((field, i) => (obj[field] = row[i]));
     return obj as T;
   });
 }

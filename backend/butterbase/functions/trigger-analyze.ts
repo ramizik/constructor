@@ -40,12 +40,15 @@ async function runAnalyze(env: Env, jobId: string, jobType: 'pareto' | 'ranking'
   try {
     await bbUpdate('jobs', `id=eq.${jobId}`, { status: 'running' }, env);
 
-    // Pivot the two IMPROVES/HURTS edges per technique into one row.
+    // Pivot the two IMPROVES/HURTS edges per technique into one row. Direction
+    // (IMPROVES vs HURTS) is semantic labeling only — a technique that shrinks
+    // memory footprint gets IMPROVES->Memory_MB, one that grows it gets HURTS -
+    // the Pareto chart just needs the number, so match either.
     const result = await cypher(
-      `MATCH (t:Technique)-[imp:IMPROVES]->(:Metric {name: 'TOPS/W'})
-       MATCH (t)-[hurt:HURTS]->(:Metric {name: 'Memory_MB'})
+      `MATCH (t:Technique)-[imp:IMPROVES|HURTS]->(:Metric {name: 'TOPS/W'})
+       MATCH (t)-[mem:IMPROVES|HURTS]->(:Metric {name: 'Memory_MB'})
        RETURN t.id AS technique_id, t.name AS technique,
-              imp.value AS tops_w, hurt.value AS memory_mb`,
+              imp.value AS tops_w, mem.value AS memory_mb`,
       {},
       env,
     );
