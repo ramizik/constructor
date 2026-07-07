@@ -135,7 +135,7 @@
         "allowOPTIONS": false,
         "urlWhitelist": [
           {
-            "whitelistPattern": "^https://sixty-webs-relate\\.loca\\.lt/.*$"
+            "whitelistPattern": "^https://sending-handles-don-socket\\.trycloudflare\\.com/.*$"
           },
           {
             "whitelistPattern": "^https://api\\.butterbase\\.ai/.*$"
@@ -184,7 +184,7 @@
     }
   ],
   "source": "webhook_1",
-  "project_id": "6d6b6046-d0f6-4350-a747-2174c58daa18",
+  "project_id": "c2fd5937-928b-409c-a402-9178dbc3a0b4",
   "version": 1,
   "isLocked": false,
   "snapToGrid": true,

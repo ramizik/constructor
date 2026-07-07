@@ -27,11 +27,13 @@ export class ButterbaseService implements ConstructorService {
   private async invoke<T>(fn: string, body?: unknown): Promise<T> {
     const apiUrl = (import.meta.env.VITE_BUTTERBASE_API_URL as string) || 'https://api.butterbase.ai';
     const appId = import.meta.env.VITE_BUTTERBASE_APP_ID as string;
-    const key = (import.meta.env.VITE_BUTTERBASE_SERVICE_KEY as string)
-      || (import.meta.env.VITE_BUTTERBASE_ANON_KEY as string);
-    const res = await fetch(`${apiUrl}/v1/${appId}/functions/${fn}/invoke`, {
+    // Deployed functions here are triggered auth:'none' (see CLAUDE.md — no
+    // auth/session system in this project) and live at /fn/{name}, not the
+    // /functions/{name}/invoke proxy path (that one 401s without an app
+    // service/anon key, which was never configured for this deployment).
+    const res = await fetch(`${apiUrl}/v1/${appId}/fn/${fn}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body ?? {}),
     });
     if (!res.ok) {
@@ -51,7 +53,14 @@ export class ButterbaseService implements ConstructorService {
     return this.invoke<Job[]>('get-jobs');
   }
   async getArtifact(ref: string) {
-    return this.invoke<Artifact | null>('get-artifact', { ref });
+    // Older/stale job rows can point at a ResultArtifact id that's no
+    // longer in Neo4j (404) — degrade to null instead of an unhandled
+    // rejection that blanks the panel on an otherwise-fine run history click.
+    try {
+      return await this.invoke<Artifact | null>('get-artifact', { ref });
+    } catch {
+      return null;
+    }
   }
   async getRunHistory() {
     // get-run-history is a stretch Function (ROADMAP contract 2b) that may not

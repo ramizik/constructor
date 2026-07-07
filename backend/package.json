@@ -7,12 +7,14 @@
     "analyze:test": "tsx src/daytona/run-analyze-job.ts",
     "neo4j:test": "tsx src/neo4j/test-connection.ts",
     "neo4j:seed": "tsx src/neo4j/seed.ts",
-    "daytona:serve": "tsx src/daytona/server.ts"
+    "daytona:serve": "tsx src/daytona/server.ts",
+    "rocketride:relay": "tsx src/rocketride/relay.ts"
   },
   "dependencies": {
     "@daytona/sdk": "^0.194.0",
     "dotenv": "^16.4.5",
-    "neo4j-driver": "^5.28.3"
+    "neo4j-driver": "^5.28.3",
+    "rocketride": "^1.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
