@@ -8,8 +8,11 @@ interface Env {
   NEO4J_QUERY_URL: string;
   NEO4J_USER: string;
   NEO4J_PASSWORD: string;
-  DAYTONA_API_URL?: string;
-  DAYTONA_API_KEY?: string;
+  // Organizer-mandated orchestrator between Scout and Analyst, deployed to
+  // RocketRide Cloud. trigger-analyze POSTs { jobType, data } here and expects
+  // an Artifact back — the pipeline starts/monitors the Daytona job now, not
+  // this function directly. See docs/PROJECT_IDEA.md.
+  ROCKETRIDE_PIPELINE_URL?: string;
 }
 
 interface CypherResult {

@@ -39,9 +39,16 @@ export DAYTONA_API_KEY="..."                                # optional
 - **Logan / Neo4j:** `lib/neo4j.ts` `readGraph()` assumes each node has `id`,
   a name-ish property, and a single label matching `NodeType`. If the seed
   schema differs, adjust the RETURN clauses there — nothing else changes.
-- **Ramiz / Daytona:** `trigger-analyze.ts` POSTs `{ jobType, data }` to
-  `DAYTONA_JOB_URL` and expects an `Artifact` back (`kind: 'table' | 'chart'`).
-  If unset, it uses a deterministic fallback so the demo never hard-fails.
+- **Ramis + Rohan / RocketRide (organizer-mandated, joint):** `trigger-analyze.ts`
+  POSTs `{ jobType, data }` to `ROCKETRIDE_PIPELINE_URL` and expects an
+  `Artifact` back (`kind: 'table' | 'chart'`). The pipeline is the thing that
+  actually starts/monitors the Daytona job now — this function no longer
+  calls Daytona directly. If `ROCKETRIDE_PIPELINE_URL` is unset, it uses a
+  deterministic fallback so the demo never hard-fails. **To go live once the
+  pipeline is deployed to RocketRide Cloud: just set the env var on the
+  deployed function** — `manage_function` (action `update_env`) with
+  `{ ROCKETRIDE_PIPELINE_URL: "<endpoint>" }`, or `butterbase functions env set`
+  if using the CLI path. No code change or redeploy needed.
 
 ## Frontend switch
 Once deployed, set in `frontend/.env.local`:

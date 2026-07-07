@@ -1,6 +1,8 @@
 // Analyst agent. Pulls the two-metric payload from Neo4j, ships it to the
-// Daytona Pareto job (Ramiz's track), then writes ExperimentRun + ResultArtifact
-// back to the graph. Ranking table is the built-in fallback (PHASE0_DECISIONS Q3).
+// RocketRide Cloud pipeline (organizer-mandated orchestrator, owned jointly by
+// Ramis + Rohan — see docs/PROJECT_IDEA.md), which starts/monitors the actual
+// Daytona job and hands back an artifact. Ranking table is the built-in
+// fallback (PHASE0_DECISIONS Q3) if the pipeline isn't deployed yet.
 interface Ctx {
   env: Env;
   db: any;
@@ -50,7 +52,7 @@ async function runAnalyze(ctx: Ctx, jobId: string, jobType: 'pareto' | 'ranking'
       higher_is_better: { tops_w: true, memory_mb: false },
     }));
 
-    const artifact = await runDaytonaJob(env, jobType, points);
+    const artifact = await runRocketRidePipeline(env, jobType, points);
 
     await cypher(
       `MERGE (run:ExperimentRun {id: $expId})
@@ -77,18 +79,19 @@ async function runAnalyze(ctx: Ctx, jobId: string, jobType: 'pareto' | 'ranking'
   }
 }
 
-async function runDaytonaJob(
+// Calls the deployed RocketRide Cloud pipeline, which starts the Daytona job,
+// waits on it, and returns the result. Set ROCKETRIDE_PIPELINE_URL on this
+// function (manage_function update_env — no redeploy needed) once the
+// pipeline is built and deployed; until then this falls through below.
+async function runRocketRidePipeline(
   env: Env,
   jobType: 'pareto' | 'ranking',
   points: ParetoPoint[],
 ): Promise<Artifact> {
-  if (env.DAYTONA_API_URL && env.DAYTONA_API_KEY) {
-    const res = await fetch(`${env.DAYTONA_API_URL}/pareto`, {
+  if (env.ROCKETRIDE_PIPELINE_URL) {
+    const res = await fetch(env.ROCKETRIDE_PIPELINE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.DAYTONA_API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobType, data: points }),
     }).catch(() => null);
     if (res && res.ok) return (await res.json()) as Artifact;
@@ -96,7 +99,7 @@ async function runDaytonaJob(
   return fallbackArtifact(jobType, points);
 }
 
-// Deterministic fallback so the demo never hard-fails if the sandbox is down.
+// Deterministic fallback so the demo never hard-fails if the pipeline isn't deployed yet.
 function fallbackArtifact(jobType: 'pareto' | 'ranking', points: ParetoPoint[]): Artifact {
   if (jobType === 'ranking') {
     const ranked = [...points].sort((a, b) => b.tops_w - a.tops_w);
