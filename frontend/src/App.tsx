@@ -144,45 +144,81 @@ export default function App() {
     await service.triggerAnalyze(params);
   }, []);
 
+  const nodeCount = graph.nodes.length;
+  const edgeCount = graph.edges.length;
+
   return (
-    <div className="grid h-screen grid-cols-[280px_1fr_340px] bg-slate-50">
-      <aside className="border-r border-slate-200 bg-white">
-        <LeftPanel
-          jobs={jobs}
-          busy={analyzing}
-          goal={goal}
-          onGoalChange={setGoal}
-          scoutOn={scoutOn}
-          scoutExhausted={scoutExhausted}
-          onToggleScout={onToggleScout}
-          onAnalyze={() => setModal('analyze')}
-        />
-      </aside>
+    <div className="flex h-screen flex-col overflow-hidden" style={{ background: 'var(--void)' }}>
+      {/* ── Status bar ───────────────────────────────────── */}
+      <header className="status-bar">
+        <span className="brand">CONSTRUCTOR</span>
+        <span className="status-sep" />
+        <span className="live-dot" />
+        <span style={{ color: 'var(--emerald)', fontWeight: 500 }}>LIVE</span>
+        <span className="status-sep" />
+        <span style={{ color: 'var(--text-mid)' }}>
+          {nodeCount} NODES · {edgeCount} EDGES
+        </span>
+        <span className="status-sep" />
+        <span style={{ color: 'var(--text-lo)' }}>
+          KNOWLEDGE GRAPH · GRAPH-NATIVE RESEARCH COMMAND CENTER
+        </span>
+        <span style={{ marginLeft: 'auto', color: 'var(--text-lo)' }}>
+          {analyzing && (
+            <span style={{ color: 'var(--amber)' }}>▶ ANALYZE RUNNING</span>
+          )}
+          {scoutOn && !analyzing && (
+            <span style={{ color: 'var(--emerald)' }}>◉ SCOUT ACTIVE</span>
+          )}
+          {!analyzing && !scoutOn && (
+            <span>IDLE</span>
+          )}
+        </span>
+      </header>
 
-      <main className="relative">
-        <div className="absolute left-3 top-3 z-10 rounded border border-slate-200 bg-white/80 px-2 py-1 text-[10px] text-slate-500 shadow-sm backdrop-blur">
-          Knowledge Graph · {graph.nodes.length} nodes · {graph.edges.length} edges
-        </div>
-        <GraphCanvas
-          graph={graph}
-          selectedId={selectedNode?.id ?? null}
-          onNodeClick={setSelectedNode}
-        />
-      </main>
+      {/* ── Main grid ────────────────────────────────────── */}
+      <div
+        className="grid min-h-0 flex-1 grid-cols-[300px_1fr_360px]"
+        style={{ borderTop: '1px solid var(--border)' }}
+      >
+        <aside style={{ borderRight: '1px solid var(--border)', background: 'var(--panel)' }}>
+          <LeftPanel
+            jobs={jobs}
+            busy={analyzing}
+            goal={goal}
+            onGoalChange={setGoal}
+            scoutOn={scoutOn}
+            scoutExhausted={scoutExhausted}
+            onToggleScout={onToggleScout}
+            onAnalyze={() => setModal('analyze')}
+          />
+        </aside>
 
-      <aside className="border-l border-slate-200 bg-white">
-        <RightPanel
-          analyzeRuns={analyzeRuns}
-          selectedRunId={selectedRunId}
-          onSelectRun={onSelectRun}
-          artifacts={artifacts}
-          runHistory={runHistory}
-          findings={findings}
-          selectedNode={selectedNode}
-          graph={graph}
-          onClearSelection={() => setSelectedNode(null)}
-        />
-      </aside>
+        <main className="graph-wrap relative" style={{ background: 'var(--void)' }}>
+          <div className="graph-badge">
+            KG · {nodeCount} nodes · {edgeCount} edges
+          </div>
+          <GraphCanvas
+            graph={graph}
+            selectedId={selectedNode?.id ?? null}
+            onNodeClick={setSelectedNode}
+          />
+        </main>
+
+        <aside style={{ borderLeft: '1px solid var(--border)', background: 'var(--panel)' }}>
+          <RightPanel
+            analyzeRuns={analyzeRuns}
+            selectedRunId={selectedRunId}
+            onSelectRun={onSelectRun}
+            artifacts={artifacts}
+            runHistory={runHistory}
+            findings={findings}
+            selectedNode={selectedNode}
+            graph={graph}
+            onClearSelection={() => setSelectedNode(null)}
+          />
+        </aside>
+      </div>
 
       {modal === 'analyze' && (
         <AnalyzeModal onClose={() => setModal(null)} onSubmit={runAnalyze} />

@@ -25,12 +25,20 @@ export class ButterbaseService implements ConstructorService {
   });
 
   private async invoke<T>(fn: string, body?: unknown): Promise<T> {
-    const { data, error } = await this.client.functions.invoke<T>(fn, {
-      body,
+    const apiUrl = (import.meta.env.VITE_BUTTERBASE_API_URL as string) || 'https://api.butterbase.ai';
+    const appId = import.meta.env.VITE_BUTTERBASE_APP_ID as string;
+    const key = (import.meta.env.VITE_BUTTERBASE_SERVICE_KEY as string)
+      || (import.meta.env.VITE_BUTTERBASE_ANON_KEY as string);
+    const res = await fetch(`${apiUrl}/v1/${appId}/functions/${fn}/invoke`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify(body ?? {}),
     });
-    if (error) throw new Error(`${fn} failed: ${error.message}`);
-    return data as T;
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${fn} failed (${res.status}): ${text}`);
+    }
+    return res.json() as Promise<T>;
   }
 
   async getGraph() {
