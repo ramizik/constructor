@@ -72,11 +72,11 @@ If something threatens steps 1-6, cut it.
 
 ***
 
-## Team split (assume this unless told otherwise)
-1. Graph + viz (Neo4j schema, seed data, Cytoscape frontend)
-2. Butterbase backbone (backend scaffold, API routes, orchestration)
-3. Scout + extraction (source parsing, entity extraction, Neo4j writes)
-4. Analyst + Daytona (sandbox job, execution trigger, artifact write-back)
+## Team split
+1. **Sid** — Graph + viz (Neo4j schema, seed data, Cytoscape frontend)
+2. **Rohan** — Butterbase backbone (backend scaffold, API routes, orchestration)
+3. **Logan** — Scout + extraction (source parsing, entity extraction, Neo4j writes)
+4. **Ramis** — Analyst + Daytona (sandbox job, execution trigger, artifact write-back)
 
 When helping one track, don't silently touch another track's files — flag the cross-cutting change instead so it doesn't collide with a teammate's in-flight work.
 

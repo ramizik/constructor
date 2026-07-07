@@ -68,11 +68,11 @@ Do not build the full 12-relationship ontology from the original spec. Add relat
 - Autonomous continuous loop (agents run on click only, not on a timer)
 - Any "future work" features — this is a demo, not a platform
 
-## Team split (4 people, suggested)
-1. **Graph + viz**: Neo4j schema, seed data, Cytoscape frontend
-2. **Butterbase backbone**: backend scaffold, API routes, job/task state, wiring frontend↔services
-3. **Scout + LLM extraction**: source parsing, entity extraction, Neo4j writes
-4. **Analyst + Daytona**: sandbox job script, execution trigger, artifact write-back
+## Team split
+1. **Sid** — Graph + viz: Neo4j schema, seed data, Cytoscape frontend
+2. **Rohan** — Butterbase backbone: backend scaffold, API routes, job/task state, wiring frontend↔services
+3. **Logan** — Scout + LLM extraction: source parsing, entity extraction, Neo4j writes
+4. **Ramis** — Analyst + Daytona: sandbox job script, execution trigger, artifact write-back
 
 Planner agent gets picked up by whoever finishes first.
 

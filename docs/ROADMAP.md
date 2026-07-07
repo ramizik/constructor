@@ -10,7 +10,7 @@ Read [PROJECT_IDEA.md](./PROJECT_IDEA.md) first. This file is the execution orde
 
 Nobody writes agent logic until these 3 contracts are written down and everyone's seen them. This is the only phase that's serial — everything after is parallel.
 
-### 1. Neo4j schema (owner: Track 1)
+### 1. Neo4j schema (owner: Sid)
 Nodes: `ResearchGoal`, `Technique`, `Metric`, `Finding`, `Source`, `ExperimentRun`, `ResultArtifact`
 Relationships: `SUPPORTS`, `EXTRACTED_FROM`, `TESTS`, `PRODUCES`, `IMPROVES`/`HURTS`
 
@@ -18,15 +18,15 @@ Cut `AgentTask` node from schema for now — only needed if Planner gets built.
 
 Deliverable: a `schema.cypher` seed script that creates 5-10 starter nodes so the graph is never empty. Push this first, before anyone else needs to query against it.
 
-### 2. Modal → job param contract (owner: Track 2 + Track 3/4 agree together)
+### 2. Modal → job param contract (owner: Rohan + Logan/Ramis agree together)
 Scout and Analyze buttons don't fire directly — click opens a small modal first, user fills a couple params, modal submit triggers the job. Keep params minimal, hardcode sane defaults so the modal can be submitted with zero typing if a demo run needs speed.
 
 - **Scout modal**: which of the 2-3 fixed sources to pull from (checkbox/select, default all), optional free-text focus hint (e.g. "prioritize thermal techniques") passed into extraction prompt if using LLM extraction.
 - **Analyze modal**: which job type param if relevant (only matters if Type B/C ever both exist — for now just a confirm + optional note field), which Findings/Techniques subset to include (default: all in graph).
 
-Modal submit → Butterbase function call (see Track 2 below) with the params as JSON body → function kicks off the agent job async and returns a `job_id` → UI shows the job as running in the left panel task list / right panel status card. Don't block the UI thread on the job.
+Modal submit → Butterbase function call (see Rohan's section below) with the params as JSON body → function kicks off the agent job async and returns a `job_id` → UI shows the job as running in the left panel task list / right panel status card. Don't block the UI thread on the job.
 
-### 3. Scout → Neo4j write contract (owner: Track 3 + Track 1 agree together)
+### 3. Scout → Neo4j write contract (owner: Logan + Sid agree together)
 Define the exact node/relationship shape Scout produces per source, e.g.:
 ```
 (:Finding {id, text, metric_value, created_at})-[:EXTRACTED_FROM]->(:Source {id, url})
@@ -34,7 +34,7 @@ Define the exact node/relationship shape Scout produces per source, e.g.:
 ```
 Scout doesn't need to be smart yet — it needs to write in a shape the graph viz can render immediately.
 
-### 4. Analyst ↔ Daytona job contract (owner: Track 4 + Track 2 agree together)
+### 4. Analyst ↔ Daytona job contract (owner: Ramis + Rohan agree together)
 - Input: what Analyst sends to Daytona (a JSON payload of Findings/Techniques pulled from Neo4j)
 - Job: one Python script in Daytona sandbox — pick **one**: comparative ranking table (Type B) or Pareto chart (Type C). Not both.
 - Output: what Daytona returns (artifact — chart image path or table JSON) and the exact `ExperimentRun` + `ResultArtifact` node shape Analyst writes back to Neo4j.
@@ -47,14 +47,14 @@ Once these 4 are written in this file or a shared doc, Phase 0 is done. Don't go
 
 Each track builds independently. Nobody touches another track's files — if you need a cross-cutting change (e.g. schema needs a new field), flag it in the team channel, don't silently edit.
 
-- **Track 1 (Graph + viz)**: Cytoscape.js frontend panel, connect to Neo4j read endpoint, render seed graph, color by node type.
-- **Track 2 (Butterbase backbone)**: scaffold on Butterbase, don't hand-roll infra it already gives us.
+- **Sid (Graph + viz)**: Cytoscape.js frontend panel, connect to Neo4j read endpoint, render seed graph, color by node type.
+- **Rohan (Butterbase backbone)**: scaffold on Butterbase, don't hand-roll infra it already gives us.
   - **Functions** = the API layer. One function per action: `trigger-scout`, `trigger-analyze`, `job-status`. Each function accepts the modal params as JSON, writes a row to a `jobs` table (status `pending`), kicks off the actual agent work (async — don't make the frontend wait on Scout/Daytona synchronously inside the request), updates the row to `running` → `done`/`error`. Stub the agent body first, real wiring happens Phase 1.5.
   - **Postgres (schema + insert_row/select_rows)** = job/task state. One `jobs` table (`id`, `type` [scout/analyze], `params` jsonb, `status`, `result_ref`, `created_at`) is enough — this replaces any need for custom session/task-queue code.
   - **Realtime** = live UI updates. Configure realtime on the `jobs` table so the frontend gets a websocket push on job status change instead of polling — left-panel task list and right-panel status card subscribe directly. Big demo win for near-zero extra work: use it.
   - If a job needs durable per-run state beyond a status string (e.g. tracking Daytona job progress ticks), consider a Durable Object instead of custom polling — only if time allows, table+realtime is enough for the demo.
-- **Track 3 (Scout)**: pick 2-3 fixed sources (URLs or pasted text — no live crawling). Build extraction (regex/manual first, LLM extraction only if time allows) → write to Neo4j per the Phase 0 contract.
-- **Track 4 (Analyst)**: write the one Daytona job script, test it standalone (feed it fake data, confirm it produces the artifact), then wire the Neo4j read → Daytona trigger → Neo4j write-back.
+- **Logan (Scout)**: pick 2-3 fixed sources (URLs or pasted text — no live crawling). Build extraction (regex/manual first, LLM extraction only if time allows) → write to Neo4j per the Phase 0 contract.
+- **Ramis (Analyst)**: write the one Daytona job script, test it standalone (feed it fake data, confirm it produces the artifact), then wire the Neo4j read → Daytona trigger → Neo4j write-back.
 
 ### Frontend: 3 panels, 3 buttons, ship this shape from the start
 - **Left**: static goal text + 3 buttons (`Scout`, `Analyze`, `Plan Next` — Plan Next visually present but disabled/greyed until Planner exists) + task/status list
