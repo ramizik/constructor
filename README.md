@@ -1,5 +1,10 @@
 # Constructor — Graph-native Research Command Center
 
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/653d3820-4926-46d8-b68c-67029221c573" />
+
+https://youtube.com/shorts/cXUEV2w5vZ4?feature=share
+
 Hackathon project: a dashboard where a semiconductor researcher sets a goal, launches agents, and watches a live knowledge graph grow as agents research, execute analyses, and write results back.
 
 See [PROJECT_IDEA.md](./docs/PROJECT_IDEA.md) for full spec, scope cuts, and demo script.
