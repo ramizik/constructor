@@ -32,7 +32,7 @@ Exact call graph, as built (see `docs/ROADMAP.md` "RocketRide wiring" for full d
 5. RocketRide returns `Artifact` JSON to `trigger-analyze`, which writes `ExperimentRun`/`ResultArtifact` to Neo4j.
 6. Deterministic local fallback (`fallbackArtifact()` in `trigger-analyze.ts`) covers the case where `ROCKETRIDE_PIPELINE_URL` is unset or unreachable — keep this fallback, it's what makes the demo crash-proof, not a leftover to delete.
 
-Owners: **Ramis** (Daytona job server, `backend/src/daytona/*`) + **Rohan** (RocketRide pipeline build/deploy, `trigger-analyze` env wiring). Anyone else touching `trigger-analyze.ts`, `backend/src/daytona/server.ts`, or the RocketRide pipeline config must flag it to Ramis/Rohan first — don't silently change the contract.
+No one owns these files individually. Anyone can edit `trigger-analyze.ts`, `backend/src/daytona/server.ts`, or the RocketRide pipeline config. The constraint is the call graph above — keep that intact, don't ask a person for permission.
 
 ***
 
@@ -88,15 +88,16 @@ If something threatens steps 1-6, cut it.
 
 ***
 
-## Team split
-1. **Sid** — Graph + viz (Neo4j schema, seed data, Cytoscape frontend)
-2. **Rohan** — Butterbase backbone (backend scaffold, API routes, orchestration) + joint RocketRide pipeline owner
-3. **Logan** — Scout + extraction (source parsing, entity extraction, Neo4j writes)
-4. **Ramis** — Analyst + Daytona (sandbox job, execution trigger, artifact write-back) + joint RocketRide pipeline owner
+## Team split (starting areas, not ownership — anyone can touch anything)
 
-RocketRide (organizer-mandated orchestrator, Scout→Analyze) is jointly owned by Ramis + Rohan — see "LOCKED architecture" section above. Locked, not up for redesign by other tracks.
+People self-pick what they build. The splits below are just where work started on day one. If someone wants to work on a different area, they can — no permission needed, no need to flag it first, no one's "track" to defend.
 
-When helping one track, don't silently touch another track's files — flag the cross-cutting change instead so it doesn't collide with a teammate's in-flight work.
+- **Sid** — graph + viz (Neo4j schema, seed data, Cytoscape frontend)
+- **Rohan** — Butterbase backbone (backend scaffold, API routes, orchestration) and the RocketRide pipeline build/deploy
+- **Logan** — Scout + extraction (source parsing, entity extraction, Neo4j writes)
+- **Ramis** — Analyst + Daytona (sandbox job, execution trigger, artifact write-back)
+
+If two people edit the same file and it conflicts, that's a git merge problem, not a coordination problem — resolve it in git, don't add a process gate.
 
 ***
 
@@ -125,3 +126,37 @@ If two options are close, choose the one with the better live demo.
 Four people, five hours. No time to build a platform.
 There is time to build **one sharp, memorable, end-to-end loop**: Scout → Analyze → graph updates live.
 Everything serves that loop. Everything else is cut until it's done.
+
+***
+
+## Butterbase deploy trap — read before redeploying any function
+
+**Every `deploy_function` MCP call (and every `butterbase functions deploy` CLI call) wipes that function's env vars.** If you redeploy without immediately re-setting env, the next invocation 500s with `TypeError: Invalid URL: 'undefined' with base 'blob:null/...'`. The error propagates from `cypher()`'s `fetch(env.NEO4J_QUERY_URL, …)` (URL is `undefined`) into `jobs.message` and surfaces in the UI's Run Details section as if the frontend were broken — it isn't.
+
+**Hit this twice already** (2026-07-07 hackathon): wiped env on `get-run-history` and `trigger-analyze` on consecutive redeploys. Took 20 min to diagnose because the error looked client-side.
+
+**Required env for any function that talks to Neo4j** (read from `backend/.env`, never from chat or commit):
+- `NEO4J_QUERY_URL=https://<dbid>.databases.neo4j.io/db/<dbid>/query/v2`
+- `NEO4J_USER=<dbid>`
+- `NEO4J_PASSWORD=...`
+
+**Recovery after a redeploy** — one call per redeployed function:
+```
+manage_function update_env <fn-name> {
+  NEO4J_QUERY_URL: "https://...",
+  NEO4J_USER: "...",
+  NEO4J_PASSWORD: "..."
+}
+```
+Or CLI path:
+```
+butterbase functions env set <fn-name> NEO4J_QUERY_URL=https://... NEO4J_USER=... NEO4J_PASSWORD=...
+```
+
+**Verify before declaring deploy done:**
+```
+manage_function get <fn-name>
+```
+Confirm `envKeys` lists the three NEO4J_* keys (plus any function-specific ones like `ROCKETRIDE_PIPELINE_URL` on `trigger-analyze`).
+
+**Hardening (not done — future work, low priority):** a deploy script that always pairs `deploy_function` + `update_env` from `backend/.env`. Skipped during the hackathon for time; flag for post-event. Worth a Butterbase feature request too — env preservation across redeploys is the real fix.
