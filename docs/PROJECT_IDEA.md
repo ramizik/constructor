@@ -21,7 +21,8 @@ Demo research goal (hardcode this, don't build goal-editing UI):
 Takes a small fixed set of pre-selected sources (2-3 URLs or pasted text, NOT live web crawling if time is short) → extracts techniques/metrics/findings via LLM → writes nodes to Neo4j.
 
 ### 2. Analyst Agent
-Takes findings from Neo4j → sent to a **RocketRide Cloud pipeline** (must-have, mandated by organizers), which orchestrates the run: starts the Daytona job, waits on it, returns the result → Butterbase writes `ExperimentRun` + `ResultArtifact` back to graph. RocketRide is the orchestrator sitting between Scout and Analyst — it does not replace Daytona, it initiates/monitors the Daytona job. ONE analysis job (pick Type B: comparative ranking, or Type C: Pareto chart — not both).
+Takes findings from Neo4j → sent to a **RocketRide Cloud pipeline** (must-have, mandated by organizers, **LOCKED design, do not restructure**). Exact call graph:
+`trigger-analyze` reads current Neo4j graph state → POSTs `{jobType, data}` to the deployed RocketRide Cloud endpoint → RocketRide starts Scout (refreshes the graph) and drives the real Daytona job by calling the standalone Daytona job HTTP server (`backend/src/daytona/server.ts`, `POST /run`, tunneled public URL — has to be a separate process, `@daytona/sdk` can't run inside a Butterbase Function) → RocketRide returns the `Artifact` JSON → Butterbase writes `ExperimentRun` + `ResultArtifact` back to graph. Deterministic local fallback if the pipeline URL is unset, so the demo never hard-fails. ONE analysis job (pick Type B: comparative ranking, or Type C: Pareto chart — not both).
 
 ### 3. Planner Agent
 Inspects graph → LLM call: "given these findings, what's the weakest-evidence area?" → creates one `AgentTask` suggestion node. This is the cheapest agent to build — a single LLM call over graph contents. Do it last if time allows; cuttable first if not.

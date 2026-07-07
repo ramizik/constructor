@@ -15,14 +15,24 @@ Read [PROJECT_IDEA.md](./PROJECT_IDEA.md) first. This file is the execution orde
 ### Deployment note: MCP path differs from `deploy.sh`/CLI path
 The functions in `backend/butterbase/functions/*.ts` (`_lib.ts` + REST-based `bbInsert`/`bbUpdate`/`bbGet`) are the CLI-deploy source Rohan wrote — untouched. What's actually live right now was deployed a different way: through the Butterbase MCP tool (`deploy_function`), which takes one self-contained file per function (no cross-file imports) and gives each function `ctx.db` (direct Postgres) instead of BB-REST. Bundled, MCP-deployable copies live in `backend/butterbase/bundled/` (`_shared.ts.inc` + per-function `*.ts`, concatenated into `*.deploy.ts`) — same contract/logic, jobs-table calls rewritten to use `ctx.db.query()`. If you redeploy via `deploy.sh`/CLI instead, the original `functions/*.ts` still works as designed; just don't run both paths against the same app without reconciling job-table access.
 
-### RocketRide wiring — code side ready, pipeline itself not built yet
+### RocketRide wiring — LOCKED architecture, code side ready, pipeline itself not built yet
 `trigger-analyze` no longer calls the dead `${DAYTONA_API_URL}/pareto` stub. Both the CLI-deploy source (`backend/butterbase/functions/trigger-analyze.ts`, `_lib.ts`) and the live MCP-deployed copy (`bundled/trigger-analyze.ts` — redeployed and reverified) now call `env.ROCKETRIDE_PIPELINE_URL` instead, with the same deterministic fallback if it's unset. Confirmed live: reran Analyze after the redeploy, still `done`, still fallback artifact (URL empty), no regression.
+
+**This is the final call graph — do not restructure it without Ramis + Rohan sign-off:**
+1. Frontend Analyze click → `trigger-analyze` (Butterbase Function).
+2. `trigger-analyze` reads current Neo4j graph state (Technique IMPROVES|HURTS edges) → builds `ParetoPoint[]`.
+3. `trigger-analyze` POSTs `{ jobType, data: points }` to `env.ROCKETRIDE_PIPELINE_URL` — the deployed RocketRide Cloud pipeline.
+4. The RocketRide pipeline (built visually, deployed to RocketRide Cloud, not part of this repo) is responsible for starting Scout (calls the `trigger-scout` Function endpoint to (re)populate the graph if the pipeline is configured to do so) and for driving the real analysis: it calls the standalone **Daytona job HTTP server** — `backend/src/daytona/server.ts`, run via `npm run daytona:serve`, exposes `POST /run` wrapping the real `@daytona/sdk` batch job (`batch.ts`). This has to be a separate process (not a Butterbase Function) because `@daytona/sdk` needs Node core modules the Deno-edge Function runtime doesn't have — confirmed via an esbuild smoke test. Server needs to be tunneled to a public URL RocketRide can reach.
+5. RocketRide returns `Artifact` JSON (chart or table) back to `trigger-analyze`.
+6. `trigger-analyze` writes `ExperimentRun`/`ResultArtifact` to Neo4j, marks the job `done`.
+7. If `ROCKETRIDE_PIPELINE_URL` is unset or the pipeline is unreachable, `trigger-analyze` falls through to a deterministic local SVG/table fallback — demo never hard-fails, but say plainly it's not sandboxed if this path is active.
 
 **To go live once someone builds and deploys the RocketRide pipeline:**
 - MCP-deployed app (`app_c6q2usx31f76`): `manage_function` action `update_env` on `trigger-analyze`, `{ ROCKETRIDE_PIPELINE_URL: "<endpoint>" }` — no code change, no redeploy.
-- CLI-deploy path (`deploy.sh`): set `ROCKETRIDE_PIPELINE_URL` in `backend/.env` (placeholder already added by the other agent) before running it.
+- CLI-deploy path (`deploy.sh`): set `ROCKETRIDE_PIPELINE_URL` in `backend/.env` before running it.
+- Start the Daytona job server (`npm run daytona:serve` from `backend/`) and tunnel it to a public URL, then wire that URL into the RocketRide pipeline's Daytona-calling node.
 
-Contract the pipeline must satisfy: `POST { jobType: 'pareto'|'ranking', data: ParetoPoint[] }` → returns `Artifact` JSON (`{kind:'chart', image_url, title, takeaway?}` or `{kind:'table', columns, rows, title, takeaway?}`) — same shape the old Daytona stub expected, so the pipeline is a drop-in once it exists. Reusing `backend/src/daytona/batch.ts`/`run-analyze-job.ts` (already verified via `npm run analyze:test`) inside the pipeline is the fastest path to a real Daytona-backed artifact instead of the SVG fallback. Owners: Ramis (exposes the Daytona job in a form the pipeline can call) + Rohan (pipeline build/deploy to RocketRide Cloud). Until the URL is set, say plainly in the demo that the chart is deterministic, not sandboxed.
+Contract the pipeline must satisfy (matches `server.ts` exactly): `POST { jobType: 'pareto'|'ranking', data: ParetoPoint[] }` → returns `Artifact` JSON (`{kind:'chart', image_url, title, takeaway?}` or `{kind:'table', columns, rows, title, takeaway?}`). Owners: Ramis (Daytona job server, `backend/src/daytona/*`) + Rohan (pipeline build/deploy to RocketRide Cloud, `trigger-analyze` env wiring). Until the URL is set, say plainly in the demo that the chart is deterministic, not sandboxed.
 
 ---
 
@@ -58,8 +68,8 @@ Per [PHASE0_DECISIONS.md](./PHASE0_DECISIONS.md) Q3: job is a **Pareto scatter**
 - **Daytona SDK connection confirmed working**: `backend/src/daytona/` scaffolded — `client.ts` (env-based init) + `test-connection.ts` (spins a real sandbox, runs code, tears down). Verified live. Ramis builds the actual Pareto job script on top of this.
 - ✅ Pareto job script built (`batch.ts` + `run-analyze-job.ts`), both frontier and ranking-table paths implemented, tested standalone via `npm run analyze:test` (mock techniques → real Daytona sandbox run). ⚠️ Not yet wired into the deployed `trigger-analyze.ts` Function.
 
-### 5. RocketRide orchestrator contract (owner: Ramis + Rohan agree together) — **NEW, organizer-mandated, must-have**
-RocketRide sits between Scout and Analyst: `trigger-analyze` calls a RocketRide Cloud pipeline instead of calling Daytona directly. The pipeline is responsible for starting/initiating and monitoring the Daytona job, then handing the result back. Build the pipeline visually, then deploy it to RocketRide Cloud (cloud.rocketride.ai) — a local/Docker-only pipeline does not satisfy the requirement, it must be a live managed endpoint the app calls. Nebius LLM integration plan is dropped; any LLM step (extraction, ranking-explanation, planner) now runs inside the RocketRide pipeline if/when needed, not via a separate provider.
+### 5. RocketRide orchestrator contract (owner: Ramis + Rohan agree together) — **LOCKED, organizer-mandated, must-have**
+RocketRide sits between Scout and Analyst: `trigger-analyze` calls a RocketRide Cloud pipeline instead of calling Daytona directly. The pipeline is responsible for starting Scout and for driving the Daytona job to completion, then handing the artifact back. See "RocketRide wiring" note above for the exact call graph — that's the locked design, don't restructure it. Build the pipeline visually, then deploy it to RocketRide Cloud (cloud.rocketride.ai) — a local/Docker-only pipeline does not satisfy the requirement, it must be a live managed endpoint the app calls. Nebius LLM integration plan is dropped; any LLM step (extraction, ranking-explanation, planner) now runs inside the RocketRide pipeline if/when needed, not via a separate provider.
 
 Once these 5 are written in this file or a shared doc, Phase 0 is done. Don't gold-plate the schema — add fields only when a later step needs them.
 

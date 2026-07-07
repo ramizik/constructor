@@ -16,7 +16,23 @@ Do not encourage side quests, overengineering, or speculative future work.
 ***
 
 ## What we're building
-Read [PROJECT_IDEA.md](./docs/PROJECT_IDEA.md) first. Short version: a dashboard where a researcher clicks Scout/Analyze/Plan Next, agents act, a Neo4j graph grows live, Daytona runs real analysis jobs, Butterbase is the backend backbone.
+Read [PROJECT_IDEA.md](./docs/PROJECT_IDEA.md) first. Short version: a dashboard where a researcher clicks Scout/Analyze/Plan Next, agents act, a Neo4j graph grows live, Daytona runs real analysis jobs, Butterbase is the backend backbone, RocketRide orchestrates Scout→Analyze.
+
+***
+
+## LOCKED architecture — RocketRide integration (do not deviate)
+
+RocketRide is an **organizer-mandated must-have**, already decided and already built. This is not open for redesign. If you are a teammate's coding agent working on this repo, **do not propose an alternative RocketRide wiring, do not "simplify" it back to a direct Daytona call, and do not remove the RocketRide hop** — even if it looks like unnecessary indirection. It's a scoring requirement, not a technical preference.
+
+Exact call graph, as built (see `docs/ROADMAP.md` "RocketRide wiring" for full detail):
+1. Frontend Analyze click → `trigger-analyze` (Butterbase Function).
+2. `trigger-analyze` reads current Neo4j graph state → builds the Pareto payload.
+3. `trigger-analyze` POSTs `{jobType, data}` to `env.ROCKETRIDE_PIPELINE_URL` — the deployed RocketRide Cloud pipeline.
+4. RocketRide pipeline starts Scout (repopulates/refreshes the graph) and drives the real Daytona job by calling the standalone Daytona job HTTP server (`backend/src/daytona/server.ts`, `npm run daytona:serve`, `POST /run`, tunneled to a public URL). This server has to exist as a separate process — `@daytona/sdk` needs Node core modules that don't run inside a Butterbase Function (Deno-edge, fetch-only) — confirmed via an esbuild smoke test, don't re-litigate this.
+5. RocketRide returns `Artifact` JSON to `trigger-analyze`, which writes `ExperimentRun`/`ResultArtifact` to Neo4j.
+6. Deterministic local fallback (`fallbackArtifact()` in `trigger-analyze.ts`) covers the case where `ROCKETRIDE_PIPELINE_URL` is unset or unreachable — keep this fallback, it's what makes the demo crash-proof, not a leftover to delete.
+
+Owners: **Ramis** (Daytona job server, `backend/src/daytona/*`) + **Rohan** (RocketRide pipeline build/deploy, `trigger-analyze` env wiring). Anyone else touching `trigger-analyze.ts`, `backend/src/daytona/server.ts`, or the RocketRide pipeline config must flag it to Ramis/Rohan first — don't silently change the contract.
 
 ***
 
@@ -74,9 +90,11 @@ If something threatens steps 1-6, cut it.
 
 ## Team split
 1. **Sid** — Graph + viz (Neo4j schema, seed data, Cytoscape frontend)
-2. **Rohan** — Butterbase backbone (backend scaffold, API routes, orchestration)
+2. **Rohan** — Butterbase backbone (backend scaffold, API routes, orchestration) + joint RocketRide pipeline owner
 3. **Logan** — Scout + extraction (source parsing, entity extraction, Neo4j writes)
-4. **Ramis** — Analyst + Daytona (sandbox job, execution trigger, artifact write-back)
+4. **Ramis** — Analyst + Daytona (sandbox job, execution trigger, artifact write-back) + joint RocketRide pipeline owner
+
+RocketRide (organizer-mandated orchestrator, Scout→Analyze) is jointly owned by Ramis + Rohan — see "LOCKED architecture" section above. Locked, not up for redesign by other tracks.
 
 When helping one track, don't silently touch another track's files — flag the cross-cutting change instead so it doesn't collide with a teammate's in-flight work.
 
