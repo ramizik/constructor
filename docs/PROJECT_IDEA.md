@@ -18,11 +18,13 @@ Demo research goal (hardcode this, don't build goal-editing UI):
 ## The 3 agents (build all 3, keep each dumb and fast)
 
 ### 1. Scout Agent
-Takes a small fixed set of pre-selected sources (2-3 URLs or pasted text, NOT live web crawling if time is short) → extracts techniques/metrics/findings via LLM → writes nodes to Neo4j.
+**Toggle, not a one-shot button.** Same fixed pool of 2-3 sources (URLs/pasted text, NOT live web crawling) — but instead of dumping all of them in on one click, toggling Scout ON starts a frontend-only `setInterval` (demo cadence, ~20-30s) that calls `trigger-scout` with `{ mode: 'auto' }` each tick. In `auto` mode the Function checks which fixed sources are already ingested (`MATCH (s:Source) RETURN s.id`) and pulls the next un-ingested one relative to the goal/existing Techniques — extracts findings, writes nodes. Once all fixed sources are ingested, further ticks are harmless no-ops (existing MERGE idempotency already guarantees this). Toggle OFF just clears the client-side interval — no backend scheduler, no cron infra. Still a closed fixed pool, just released incrementally instead of all-at-once, so the graph visibly grows during the demo instead of jumping once.
 
 ### 2. Analyst Agent
 Takes findings from Neo4j → sent to a **RocketRide Cloud pipeline** (must-have, mandated by organizers, **LOCKED design, do not restructure**). Exact call graph:
 `trigger-analyze` reads current Neo4j graph state → POSTs `{jobType, data}` to the deployed RocketRide Cloud endpoint → RocketRide starts Scout (refreshes the graph) and drives the real Daytona job by calling the standalone Daytona job HTTP server (`backend/src/daytona/server.ts`, `POST /run`, tunneled public URL — has to be a separate process, `@daytona/sdk` can't run inside a Butterbase Function) → RocketRide returns the `Artifact` JSON → Butterbase writes `ExperimentRun` + `ResultArtifact` back to graph. Deterministic local fallback if the pipeline URL is unset, so the demo never hard-fails. ONE analysis job (pick Type B: comparative ranking, or Type C: Pareto chart — not both).
+
+**Analyze is button + config modal, not a bare click.** User picks job type (pareto/ranking, default pareto) and an optional note before the run starts — same modal pattern as before, just the params now matter (job type actually changes `fallbackArtifact`/pipeline behavior). Every Analyze click creates a **new** run, never overwrites the last one — the right panel is a navigable history of runs (see UI section), not a single status card.
 
 ### 3. Planner Agent
 Inspects graph → LLM call: "given these findings, what's the weakest-evidence area?" → creates one `AgentTask` suggestion node. This is the cheapest agent to build — a single LLM call over graph contents. Do it last if time allows; cuttable first if not.
@@ -43,9 +45,9 @@ Do not build the full 12-relationship ontology from the original spec. Add relat
 LLM calls (extraction, ranking-explanation, planner suggestion) run inside the RocketRide pipeline where needed — no separate LLM provider integration (Nebius plan dropped).
 
 ## UI (single page, 3 panels)
-- **Left**: goal card (static text) + 3 buttons (Scout / Analyze / Plan Next) + task queue list
-- **Center**: graph viz (Cytoscape.js), colored by node type, animates new nodes on agent completion
-- **Right**: job status card + findings feed + latest artifact (table or chart image)
+- **Left**: goal card (static text) + **Scout toggle** (on/off, not a button) + **Analyze button** (opens config modal: job type, optional note) + Plan Next (disabled) + task queue list
+- **Center**: graph viz (Cytoscape.js), colored by node type, animates new nodes as Scout ticks land and as Analyze writes back
+- **Right**: **run history — a navigable list of Analyze runs**, newest first (seed run included). Click any run to load that run's artifact (chart/table) + one-line takeaway + a small trend view showing how the leading technique's TOPS/W changed across prior runs. Findings feed stays as a secondary feed below the run list.
 
 ## Must-have (the demo path — nothing else matters until this works end to end)
 1. App scaffold (frontend + Butterbase backend)
@@ -69,7 +71,7 @@ LLM calls (extraction, ranking-explanation, planner suggestion) run inside the R
 - PDF ingestion
 - Full ontology / all relationship types
 - Multiple research domains
-- Autonomous continuous loop (agents run on click only, not on a timer)
+- Any real backend scheduler/cron for Scout — the toggle's polling is a frontend `setInterval` for demo purposes only, over a closed fixed source pool, not a production ingestion pipeline
 - Any "future work" features — this is a demo, not a platform
 
 ## Team split
@@ -83,11 +85,13 @@ LLM calls (extraction, ranking-explanation, planner suggestion) run inside the R
 Planner agent gets picked up by whoever finishes first.
 
 ## Demo script (rehearse this exact sequence)
-1. Open dashboard, seeded graph visible, goal shown
-2. Click Scout → new nodes animate in, findings feed updates
-3. Click Analyze → job card shows running (RocketRide pipeline orchestrating the Daytona job in the background) → artifact (chart/table) appears in graph + right panel
-4. (If time) Click Plan Next → gap suggestion appears
-5. Close with the one-line takeaway the analysis produced. Mention RocketRide by name as the orchestrator — it's an organizer-mandated must-have, worth calling out explicitly.
+1. Open dashboard, seeded graph visible, goal shown, run history shows the seed run
+2. Toggle **Scout ON** → over ~20-60s, 2-3 sources land one at a time, graph animates growth, findings feed updates
+3. Toggle **Scout OFF** once sources are exhausted (or leave it running, it's a harmless no-op past that point)
+4. Click **Analyze** → config modal (job type: Pareto, default) → confirm → new run appears at the top of run history, job card shows running (RocketRide pipeline orchestrating the Daytona job in the background) → artifact (chart/table) appears
+5. Click between the seed run and the new run in run history → frontier/ranking visibly changed as evidence grew
+6. (If time) Click Plan Next → gap suggestion appears
+7. Close with the one-line takeaway the analysis produced. Mention RocketRide by name as the orchestrator — it's an organizer-mandated must-have, worth calling out explicitly.
 
 ## Checkpoint schedule (5 hours left, loose, adjust live)
 - 0:00-0:20: scaffold + schema + seed data + interface contracts agreed and committed

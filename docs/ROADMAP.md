@@ -9,7 +9,8 @@ Read [PROJECT_IDEA.md](./PROJECT_IDEA.md) first. This file is the execution orde
 - ✅ Phase 0 — all 4 contracts locked, schema pushed.
 - ✅ Phase 1 — frontend (3 panels, modals, mock + Butterbase service toggle), Butterbase functions (`trigger-scout`, `trigger-analyze`, `get-graph`, `get-findings`, `get-jobs`, `get-artifact`), Scout writer, Neo4j client/seed/schema, Daytona SDK scaffold all built.
 - ✅ **App deployed live** via Butterbase MCP: `app_c6q2usx31f76` (`https://api.butterbase.ai/v1/app_c6q2usx31f76`). `jobs` table applied + realtime enabled, all 6 functions deployed and **test-invoked for real**: Scout run added 16 nodes (16→32), Analyze read them, wrote `ExperimentRun`/`ResultArtifact` back, `get-artifact` returned the chart. `frontend/.env.local` points at this app (`VITE_USE_BUTTERBASE=true`).
-- ⚠️ **Phase 1.5 checkpoint — loop works, one known gap remains.** See risk below.
+- ⚠️ **Phase 1.5 checkpoint — loop works, gaps remain.** See risk below.
+- ⬜ **New scope, not started:** Scout toggle (`{mode:'auto'}` + client interval), Analyze run history + trend view (`get-run-history`, `RightPanel` rework). See Phase 0 contracts 2 and 2b.
 - ⬜ Phase 2/3/4 — not started.
 
 ### Deployment note: MCP path differs from `deploy.sh`/CLI path
@@ -50,13 +51,22 @@ Deliverable: a `schema.cypher` seed script that creates 5-10 starter nodes so th
 
 `graph/schema.cypher` pushed and seeded — `neo4j:seed` run confirms 16 nodes live in Aura. Bolt connection verified via `backend/src/neo4j/test-connection.ts` (`npm run neo4j:test` from `backend/`). Deployed Butterbase Functions talk to the same instance over Aura's HTTP Query API v2 (`NEO4J_QUERY_URL`), not bolt — see `backend/.env.example` for the split.
 
-### 2. Modal → job param contract (owner: Rohan + Logan/Ramis agree together)
-Scout and Analyze buttons don't fire directly — click opens a small modal first, user fills a couple params, modal submit triggers the job. Keep params minimal, hardcode sane defaults so the modal can be submitted with zero typing if a demo run needs speed.
+### 2. Scout toggle + Analyze modal contract (owner: Rohan + Logan/Ramis agree together) — **UPDATED, was "Scout modal", now a toggle**
+- **Scout is a toggle, not a modal-gated button.** ON → frontend starts a `setInterval` (demo cadence, ~20-30s) calling `trigger-scout` with `{ mode: 'auto' }`. OFF → frontend clears the interval. No backend scheduler/cron, no new server state — purely client-driven, safe because `trigger-scout` is idempotent (re-ticking after all sources are ingested is a no-op).
+  - **`trigger-scout` needs new `auto` mode** (currently only supports an explicit `sources` list): query `MATCH (s:Source) RETURN s.id`, diff against the fixed `FIXTURES` keys, pick the first not-yet-ingested one, ingest just that one. If none remain, return `{ nodes: 0, edges: 0, done: true }` so the frontend can grey out the toggle or show "fully scouted." **Not built yet — flag before touching `trigger-scout.ts` / `bundled/trigger-scout.ts`, cross-cutting (Logan owns the function, Ramis+Rohan touched the bundled copy for RocketRide).**
+- **Analyze modal** (unchanged shape, params now matter): job type (`pareto`/`ranking`, default pareto), optional note. Submit → `trigger-analyze` → **creates a new run, appended to history — never overwrites the previous run's card.**
 
-- **Scout modal**: which of the 2-3 fixed sources to pull from (checkbox/select, default all), optional free-text focus hint (e.g. "prioritize thermal techniques") passed into extraction prompt if using LLM extraction.
-- **Analyze modal**: which job type param if relevant (only matters if Type B/C ever both exist — for now just a confirm + optional note field), which Findings/Techniques subset to include (default: all in graph).
+Modal/toggle → Butterbase function call with params as JSON body → function kicks off the agent job async, returns a `job_id` → UI shows it running in the left panel task list. Don't block the UI thread on the job.
 
-Modal submit → Butterbase function call (see Rohan's section below) with the params as JSON body → function kicks off the agent job async and returns a `job_id` → UI shows the job as running in the left panel task list / right panel status card. Don't block the UI thread on the job.
+### 2b. Right-panel run history + trend contract (owner: Sid + Rohan agree together) — **NEW**
+Right panel is no longer a single status card — it's a **navigable list of Analyze runs** (newest first, seed run included), backed by the existing `get-jobs` (job list) + `get-artifact` (per-run payload). Clicking a run loads its artifact + `takeaway`.
+
+For the cross-run trend view (how the leading technique's TOPS/W changed over time): store the raw `ParetoPoint[]` used for that run on the `ResultArtifact` node too, not just the rendered SVG —
+```cypher
+MERGE (art:ResultArtifact {id: $artifactId})
+  ON CREATE SET art.payload = $payload, art.points = $pointsJson, art.created_at = datetime()
+```
+— then a new lightweight Function (`get-run-history`) reads all `ExperimentRun -[:PRODUCES]-> ResultArtifact` ordered by `created_at`, parses each `art.points`, returns `{ run_id, created_at, best_technique, best_tops_w }[]`. Pure aggregation over already-fetched Neo4j data — **not a Daytona job**, don't push this into the sandbox. Frontend renders it as a small sparkline under the selected run's artifact.
 
 ### 3. Scout → Neo4j write contract (owner: Logan + Sid agree together) — **LOCKED**
 Full node/relationship shapes, merge keys, idempotency rule, and ID-prefix convention are written up in [SCOUT_CONTRACT.md](./SCOUT_CONTRACT.md) and locked in [PHASE0_DECISIONS.md](./PHASE0_DECISIONS.md). Scout runs as a Butterbase Function (TS), writes Neo4j directly (no Daytona in this path).
@@ -71,7 +81,7 @@ Per [PHASE0_DECISIONS.md](./PHASE0_DECISIONS.md) Q3: job is a **Pareto scatter**
 ### 5. RocketRide orchestrator contract (owner: Ramis + Rohan agree together) — **LOCKED, organizer-mandated, must-have**
 RocketRide sits between Scout and Analyst: `trigger-analyze` calls a RocketRide Cloud pipeline instead of calling Daytona directly. The pipeline is responsible for starting Scout and for driving the Daytona job to completion, then handing the artifact back. See "RocketRide wiring" note above for the exact call graph — that's the locked design, don't restructure it. Build the pipeline visually, then deploy it to RocketRide Cloud (cloud.rocketride.ai) — a local/Docker-only pipeline does not satisfy the requirement, it must be a live managed endpoint the app calls. Nebius LLM integration plan is dropped; any LLM step (extraction, ranking-explanation, planner) now runs inside the RocketRide pipeline if/when needed, not via a separate provider.
 
-Once these 5 are written in this file or a shared doc, Phase 0 is done. Don't gold-plate the schema — add fields only when a later step needs them.
+Once these are written in this file or a shared doc, Phase 0 is done. Don't gold-plate the schema — add fields only when a later step needs them.
 
 ---
 
@@ -79,22 +89,22 @@ Once these 5 are written in this file or a shared doc, Phase 0 is done. Don't go
 
 Each track builds independently. Nobody touches another track's files — if you need a cross-cutting change (e.g. schema needs a new field), flag it in the team channel, don't silently edit.
 
-- **Sid (Graph + viz)** — ✅ Cytoscape.js frontend panel built (`GraphCanvas.tsx`), 3-panel layout shipped (`LeftPanel`, `RightPanel`, `Modal`), reads via `get-graph` function.
+- **Sid (Graph + viz)** — ✅ Cytoscape.js frontend panel built (`GraphCanvas.tsx`), 3-panel layout shipped (`LeftPanel`, `RightPanel`, `Modal`), reads via `get-graph` function. ⬜ New: convert `RightPanel` from single status card to a navigable run-history list (Phase 0 contract 2b) — not built yet.
 - **Rohan (Butterbase backbone)** — ✅ scaffolded on Butterbase.
-  - **Functions** — ✅ all shipped: `trigger-scout`, `trigger-analyze`, `get-graph`, `get-findings`, `get-jobs`, `get-artifact` (`backend/butterbase/functions/`). Async job kickoff via `ctx.waitUntil`, no blocking on Scout/Daytona.
+  - **Functions** — ✅ shipped: `trigger-scout`, `trigger-analyze`, `get-graph`, `get-findings`, `get-jobs`, `get-artifact` (`backend/butterbase/functions/`). Async job kickoff via `ctx.waitUntil`, no blocking on Scout/Daytona. ⬜ New: `get-run-history` Function (contract 2b) not built yet.
   - **Postgres** — ✅ `jobs` table in `backend/butterbase/schema.sql` (`id`, `type`, `status`, `params`, `result_ref`, `message`, `created_at`).
   - **Realtime** — not yet confirmed wired to frontend; check before Phase 1.5 checkpoint (left-panel task list / status card should subscribe, not poll).
   - Durable Objects — not needed, table+realtime plan holds.
-- **Logan (Scout)** — ✅ `trigger-scout.ts` Function built: deterministic fixture-based extraction (no live crawling), writes Source/Technique/Metric/Finding nodes to Neo4j per the locked contract. Standalone `scout/` package from earlier was merged into the Butterbase function and removed.
+- **Logan (Scout)** — ✅ `trigger-scout.ts` Function built: deterministic fixture-based extraction (no live crawling), writes Source/Technique/Metric/Finding nodes to Neo4j per the locked contract. Standalone `scout/` package from earlier was merged into the Butterbase function and removed. ⬜ New: `{ mode: 'auto' }` support for the Scout toggle (contract 2) — not built yet.
 - **Ramis (Analyst)** — ✅ repo split (`backend/`, `frontend/`) done. Daytona SDK scaffold verified live. Pareto job script (`batch.ts`/`run-analyze-job.ts`) built and tested standalone. ⚠️ Neo4j read → Daytona trigger → Neo4j write-back loop exists in `trigger-analyze.ts`, but the Daytona call itself is a stub HTTP fetch to a non-existent endpoint — real SDK job isn't reachable from the deployed function yet. See risk note at top.
-- **Ramis + Rohan (RocketRide, new)** — ⬜ not started. Build pipeline, deploy to RocketRide Cloud, repoint `trigger-analyze` at it. This is now must-have, not nice-to-have.
+- **Ramis + Rohan (RocketRide)** — ⬜ not started. Build pipeline, deploy to RocketRide Cloud, repoint `trigger-analyze` at it. This is now must-have, not nice-to-have.
 
-### Frontend: 3 panels, 3 buttons, ship this shape from the start
-- **Left**: static goal text + 3 buttons (`Scout`, `Analyze`, `Plan Next` — Plan Next visually present but disabled/greyed until Planner exists) + task/status list
-- **Center**: Cytoscape graph, animates new nodes on agent completion
-- **Right**: job status card + findings feed + latest artifact (image or table)
+### Frontend: 3 panels, ship this shape from the start
+- **Left**: static goal text + **Scout toggle** (on/off) + **Analyze button** (opens config modal) + Plan Next (disabled until Planner exists) + task/status list
+- **Center**: Cytoscape graph, animates new nodes as Scout ticks land and Analyze writes back
+- **Right**: **run history — navigable list of Analyze runs**, newest first. Click a run to load its artifact (chart/table), takeaway, and a trend sparkline across prior runs (contract 2b). Findings feed stays as a secondary feed below it.
 
-**Button behavior**: clicking Scout or Analyze does NOT fire the job directly — it opens a small modal (see Phase 0 contract 2) where the user sets params, then submits to actually start the job. Keep the modal to 1-2 fields max and pre-filled with defaults so it can be submitted in one click if needed for demo pacing. Job list/status card should update live via Butterbase realtime, not polling.
+**Toggle/button behavior**: Scout toggle ON starts a client-side `setInterval` calling `trigger-scout({mode:'auto'})` — no modal, no per-tick user input. Analyze still opens a config modal (job type, note) before firing, and every submit creates a **new** run appended to history, never overwriting the last one. Job list/run history should update live via Butterbase realtime, not polling.
 
 No auth, no multi-user, no session state. One page, one goal, hardcoded.
 
@@ -102,10 +112,11 @@ No auth, no multi-user, no session state. One page, one goal, hardcoded.
 
 ## Phase 1.5 (2:00-2:20): First integration checkpoint — do this early, don't wait until it's too late
 
-Stop feature work. Answer three questions with a real click, not a code read:
-1. Does clicking **Scout** in the UI write real nodes to Neo4j, visible in the graph? — code is in place; **not yet click-tested end-to-end**, confirm with a real browser click before moving on.
-2. Does clicking **Analyze** trigger a real Daytona job (via RocketRide) and write a real artifact back to Neo4j, visible in the UI? — **NO.** Graph write-back works, but the artifact comes from `fallbackArtifact()`, not a real Daytona sandbox run. Fix before claiming this checkpoint is passed.
+Stop feature work. Answer these with a real click, not a code read:
+1. Does toggling **Scout ON** write real nodes to Neo4j one source at a time, visible in the graph? — **NOT BUILT.** `trigger-scout` only supports the old explicit-`sources` call; `{mode:'auto'}` + the toggle UI don't exist yet.
+2. Does clicking **Analyze** (via the config modal) trigger a real Daytona job (via RocketRide) and write a real artifact back to Neo4j, visible in the UI? — **NO.** Graph write-back works, but the artifact comes from `fallbackArtifact()`, not a real Daytona sandbox run. Fix before claiming this checkpoint is passed.
 3. Is the RocketRide pipeline actually deployed to RocketRide Cloud (not just running locally)? — **NOT STARTED.** This is an organizer must-have; don't skip it even under time pressure.
+4. Does the right panel show a navigable run history (not just the last run), and does clicking an old run reload its artifact? — **NOT BUILT.** `get-run-history` Function and the `RightPanel` rework are both pending.
 
 If either is broken, everyone drops what they're doing and fixes the loop before adding anything else. This checkpoint is the whole point of the roadmap — miss it and the demo is at risk.
 
@@ -124,11 +135,12 @@ If either is broken, everyone drops what they're doing and fixes the loop before
 ## Phase 3 (3:40-4:20): Demo script rehearsal, freeze features
 
 No new code. Rehearse the exact sequence:
-1. Open dashboard, seeded graph visible, goal shown
-2. Click Scout → new nodes animate in, findings feed updates
-3. Click Analyze → job card shows running → artifact appears in graph + right panel
-4. (Only if Planner shipped) Click Plan Next → gap suggestion appears
-5. Close with the one-line takeaway the analysis produced
+1. Open dashboard, seeded graph visible, goal shown, run history shows the seed run
+2. Toggle Scout ON → sources land one at a time over ~20-60s, graph animates, findings feed updates; toggle OFF once exhausted
+3. Click Analyze → config modal → confirm → new run appears in history, job card shows running → artifact appears
+4. Click between the seed run and the new run in history → frontier/ranking visibly changed
+5. (Only if Planner shipped) Click Plan Next → gap suggestion appears
+6. Close with the one-line takeaway the analysis produced
 
 Say plainly in the demo what's mocked (fixed sources, single job type) — don't pretend it's more than it is.
 
