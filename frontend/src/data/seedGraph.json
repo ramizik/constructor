@@ -1,0 +1,44 @@
+{
+  "nodes": [
+    { "id": "goal-1", "label": "ResearchGoal", "props": { "text": "Find promising techniques for improving TOPS/W under thermal limit and memory constraints for edge inference accelerators." } },
+
+    { "id": "technique-int4-quant", "label": "Technique", "props": { "name": "INT4 Quantization" } },
+    { "id": "technique-2-4-sparsity", "label": "Technique", "props": { "name": "Structured 2:4 Weight Sparsity" } },
+    { "id": "technique-nmc", "label": "Technique", "props": { "name": "Near-Memory Compute" } },
+
+    { "id": "metric-tops-per-watt", "label": "Metric", "props": { "name": "TOPS/W" } },
+    { "id": "metric-peak-die-temp", "label": "Metric", "props": { "name": "Peak Die Temp" } },
+
+    { "id": "source-mlperf-tiny-2024", "label": "Source", "props": { "title": "MLPerf Tiny 2024 Edge Inference Report" } },
+    { "id": "source-isscc-2024-nmc", "label": "Source", "props": { "title": "ISSCC 2024: Near-Memory Compute for Edge AI" } },
+
+    { "id": "finding-int4-quant", "label": "Finding", "props": { "text": "INT4 quantization improves TOPS/W by 2.3x with <1% accuracy loss" } },
+    { "id": "finding-2-4-sparsity", "label": "Finding", "props": { "text": "Structured 2:4 sparsity cuts memory bandwidth 40%, TOPS/W +1.6x" } },
+    { "id": "finding-nmc", "label": "Finding", "props": { "text": "Near-memory compute cuts DRAM access energy 35%, raises peak die temp by 8C" } },
+
+    { "id": "run-1", "label": "ExperimentRun", "props": { "job_type": "comparative_ranking", "status": "done" } },
+    { "id": "artifact-1", "label": "ResultArtifact", "props": { "kind": "table", "ref": "ranking_table.json" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "finding-int4-quant", "target": "source-mlperf-tiny-2024", "type": "EXTRACTED_FROM" },
+    { "id": "e2", "source": "finding-2-4-sparsity", "target": "source-mlperf-tiny-2024", "type": "EXTRACTED_FROM" },
+    { "id": "e3", "source": "finding-nmc", "target": "source-isscc-2024-nmc", "type": "EXTRACTED_FROM" },
+
+    { "id": "e4", "source": "finding-int4-quant", "target": "technique-int4-quant", "type": "SUPPORTS" },
+    { "id": "e5", "source": "finding-2-4-sparsity", "target": "technique-2-4-sparsity", "type": "SUPPORTS" },
+    { "id": "e6", "source": "finding-nmc", "target": "technique-nmc", "type": "SUPPORTS" },
+    { "id": "e7", "source": "finding-int4-quant", "target": "goal-1", "type": "SUPPORTS" },
+    { "id": "e8", "source": "finding-2-4-sparsity", "target": "goal-1", "type": "SUPPORTS" },
+    { "id": "e9", "source": "finding-nmc", "target": "goal-1", "type": "SUPPORTS" },
+
+    { "id": "e10", "source": "technique-int4-quant", "target": "metric-tops-per-watt", "type": "IMPROVES" },
+    { "id": "e11", "source": "technique-2-4-sparsity", "target": "metric-tops-per-watt", "type": "IMPROVES" },
+    { "id": "e12", "source": "technique-nmc", "target": "metric-tops-per-watt", "type": "IMPROVES" },
+    { "id": "e13", "source": "technique-nmc", "target": "metric-peak-die-temp", "type": "HURTS" },
+
+    { "id": "e14", "source": "run-1", "target": "technique-int4-quant", "type": "TESTS" },
+    { "id": "e15", "source": "run-1", "target": "technique-2-4-sparsity", "type": "TESTS" },
+    { "id": "e16", "source": "run-1", "target": "technique-nmc", "type": "TESTS" },
+    { "id": "e17", "source": "run-1", "target": "artifact-1", "type": "PRODUCES" }
+  ]
+}
