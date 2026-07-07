@@ -2,17 +2,23 @@
 
 Read [PROJECT_IDEA.md](./PROJECT_IDEA.md) first. This file is the execution order — who builds what, in what sequence, against what interface, so nobody blocks anybody.
 
-**Core loop we're shipping:** Scout writes nodes to Neo4j → Analyst reads Neo4j, runs a Daytona job, writes results back to Neo4j → frontend shows all of it live. Planner is a stretch goal only.
+**Core loop we're shipping:** Scout writes nodes to Neo4j → Analyst reads Neo4j, calls a **RocketRide Cloud pipeline** (organizer-mandated must-have, new as of this update) which orchestrates/starts/monitors the Daytona job → results written back to Neo4j → frontend shows all of it live. Planner is a stretch goal only.
 
-## Status snapshot (updated 2026-07-07, ~1:40 in)
+## Status snapshot (updated 2026-07-07, ~1:55 in)
 
 - ✅ Phase 0 — all 4 contracts locked, schema pushed.
 - ✅ Phase 1 — frontend (3 panels, modals, mock + Butterbase service toggle), Butterbase functions (`trigger-scout`, `trigger-analyze`, `get-graph`, `get-findings`, `get-jobs`, `get-artifact`), Scout writer, Neo4j client/seed/schema, Daytona SDK scaffold all built.
-- ⚠️ **Phase 1.5 checkpoint — not yet clean.** See risk below before declaring the loop done.
+- ✅ **App deployed live** via Butterbase MCP: `app_c6q2usx31f76` (`https://api.butterbase.ai/v1/app_c6q2usx31f76`). `jobs` table applied + realtime enabled, all 6 functions deployed and **test-invoked for real**: Scout run added 16 nodes (16→32), Analyze read them, wrote `ExperimentRun`/`ResultArtifact` back, `get-artifact` returned the chart. `frontend/.env.local` points at this app (`VITE_USE_BUTTERBASE=true`).
+- ⚠️ **Phase 1.5 checkpoint — loop works, one known gap remains.** See risk below.
 - ⬜ Phase 2/3/4 — not started.
 
-### Open integration risk (blocks a clean 1.5 checkpoint)
-`trigger-analyze.ts` calls `fetch(`${DAYTONA_API_URL}/pareto`)` — that route doesn't exist on Daytona's real API, so this call always fails and silently falls through to `fallbackArtifact()` (a local SVG generator, no sandbox involved). The actual Daytona SDK path (`backend/src/daytona/batch.ts` + `run-analyze-job.ts`, verified working via `npm run analyze:test`) is never invoked from the deployed function. **Net effect: clicking Analyze today produces a real graph write-back, but the "artifact" is not actually a Daytona sandbox output.** Someone (Ramis, Rohan) needs to decide: wrap the SDK job behind a small HTTP shim Butterbase can call, or call it some other way Butterbase Functions support. Until fixed, don't claim "real Daytona job" in the demo pitch — say plainly what's mocked per CLAUDE.md.
+### Deployment note: MCP path differs from `deploy.sh`/CLI path
+The functions in `backend/butterbase/functions/*.ts` (`_lib.ts` + REST-based `bbInsert`/`bbUpdate`/`bbGet`) are the CLI-deploy source Rohan wrote — untouched. What's actually live right now was deployed a different way: through the Butterbase MCP tool (`deploy_function`), which takes one self-contained file per function (no cross-file imports) and gives each function `ctx.db` (direct Postgres) instead of BB-REST. Bundled, MCP-deployable copies live in `backend/butterbase/bundled/` (`_shared.ts.inc` + per-function `*.ts`, concatenated into `*.deploy.ts`) — same contract/logic, jobs-table calls rewritten to use `ctx.db.query()`. If you redeploy via `deploy.sh`/CLI instead, the original `functions/*.ts` still works as designed; just don't run both paths against the same app without reconciling job-table access.
+
+### Open integration risk (blocks a fully "real" Analyze) — now the RocketRide task
+`trigger-analyze` calls `fetch(`${DAYTONA_API_URL}/pareto`)` — that route doesn't exist on Daytona's real API (env vars are set empty on the deployed function), so it always falls through to `fallbackArtifact()` (a local SVG generator, no sandbox involved). Confirmed live: the deployed Analyze job we ran returned a `chart` artifact from the fallback path. The actual Daytona SDK path (`backend/src/daytona/batch.ts` + `run-analyze-job.ts`, verified working via `npm run analyze:test`) is never invoked from the deployed function.
+
+**This is now the RocketRide integration point, not just a bug fix.** Organizers require a RocketRide Cloud pipeline as a must-have, and the natural slot for it is exactly here: between `trigger-analyze` and Daytona. Plan: `trigger-analyze` calls the deployed RocketRide Cloud endpoint instead of the dead `${DAYTONA_API_URL}/pareto` stub; the RocketRide pipeline starts/monitors the Daytona job (reusing the logic already proven in `batch.ts`/`run-analyze-job.ts`) and returns the result; Butterbase writes `ExperimentRun`/`ResultArtifact` back to Neo4j same as today. Owners: Ramis (exposes the Daytona job in a form the pipeline can call) + Rohan (repoints `trigger-analyze`). Until this is wired and deployed to RocketRide Cloud (not just local/Docker), say plainly in the demo that the chart is deterministic, not sandboxed.
 
 ---
 
@@ -46,9 +52,12 @@ Per [PHASE0_DECISIONS.md](./PHASE0_DECISIONS.md) Q3: job is a **Pareto scatter**
 - Input payload shape (per technique): `{"technique_id","technique","tops_w","memory_mb","higher_is_better":{"tops_w":true,"memory_mb":false}}` — see SCOUT_CONTRACT.md §3/§6.
 - Output: chart artifact + `ExperimentRun`/`ResultArtifact` nodes written back to Neo4j (exact fields TBD by Ramis in Phase 1 — not blocking).
 - **Daytona SDK connection confirmed working**: `backend/src/daytona/` scaffolded — `client.ts` (env-based init) + `test-connection.ts` (spins a real sandbox, runs code, tears down). Verified live. Ramis builds the actual Pareto job script on top of this.
-- ✅ Pareto job script built (`batch.ts` + `run-analyze-job.ts`), both frontier and ranking-table paths implemented, tested standalone via `npm run analyze:test` (mock techniques → real Daytona sandbox run). ⚠️ Not yet wired into the deployed `trigger-analyze.ts` Function — see "Open integration risk" at top of this doc.
+- ✅ Pareto job script built (`batch.ts` + `run-analyze-job.ts`), both frontier and ranking-table paths implemented, tested standalone via `npm run analyze:test` (mock techniques → real Daytona sandbox run). ⚠️ Not yet wired into the deployed `trigger-analyze.ts` Function.
 
-Once these 4 are written in this file or a shared doc, Phase 0 is done. Don't gold-plate the schema — add fields only when a later step needs them.
+### 5. RocketRide orchestrator contract (owner: Ramis + Rohan agree together) — **NEW, organizer-mandated, must-have**
+RocketRide sits between Scout and Analyst: `trigger-analyze` calls a RocketRide Cloud pipeline instead of calling Daytona directly. The pipeline is responsible for starting/initiating and monitoring the Daytona job, then handing the result back. Build the pipeline visually, then deploy it to RocketRide Cloud (cloud.rocketride.ai) — a local/Docker-only pipeline does not satisfy the requirement, it must be a live managed endpoint the app calls. Nebius LLM integration plan is dropped; any LLM step (extraction, ranking-explanation, planner) now runs inside the RocketRide pipeline if/when needed, not via a separate provider.
+
+Once these 5 are written in this file or a shared doc, Phase 0 is done. Don't gold-plate the schema — add fields only when a later step needs them.
 
 ---
 
@@ -64,6 +73,7 @@ Each track builds independently. Nobody touches another track's files — if you
   - Durable Objects — not needed, table+realtime plan holds.
 - **Logan (Scout)** — ✅ `trigger-scout.ts` Function built: deterministic fixture-based extraction (no live crawling), writes Source/Technique/Metric/Finding nodes to Neo4j per the locked contract. Standalone `scout/` package from earlier was merged into the Butterbase function and removed.
 - **Ramis (Analyst)** — ✅ repo split (`backend/`, `frontend/`) done. Daytona SDK scaffold verified live. Pareto job script (`batch.ts`/`run-analyze-job.ts`) built and tested standalone. ⚠️ Neo4j read → Daytona trigger → Neo4j write-back loop exists in `trigger-analyze.ts`, but the Daytona call itself is a stub HTTP fetch to a non-existent endpoint — real SDK job isn't reachable from the deployed function yet. See risk note at top.
+- **Ramis + Rohan (RocketRide, new)** — ⬜ not started. Build pipeline, deploy to RocketRide Cloud, repoint `trigger-analyze` at it. This is now must-have, not nice-to-have.
 
 ### Frontend: 3 panels, 3 buttons, ship this shape from the start
 - **Left**: static goal text + 3 buttons (`Scout`, `Analyze`, `Plan Next` — Plan Next visually present but disabled/greyed until Planner exists) + task/status list
@@ -78,9 +88,10 @@ No auth, no multi-user, no session state. One page, one goal, hardcoded.
 
 ## Phase 1.5 (2:00-2:20): First integration checkpoint — do this early, don't wait until it's too late
 
-Stop feature work. Answer two questions with a real click, not a code read:
+Stop feature work. Answer three questions with a real click, not a code read:
 1. Does clicking **Scout** in the UI write real nodes to Neo4j, visible in the graph? — code is in place; **not yet click-tested end-to-end**, confirm with a real browser click before moving on.
-2. Does clicking **Analyze** trigger a real Daytona job and write a real artifact back to Neo4j, visible in the UI? — **NO.** Graph write-back works, but the artifact comes from `fallbackArtifact()`, not a real Daytona sandbox run. Fix before claiming this checkpoint is passed.
+2. Does clicking **Analyze** trigger a real Daytona job (via RocketRide) and write a real artifact back to Neo4j, visible in the UI? — **NO.** Graph write-back works, but the artifact comes from `fallbackArtifact()`, not a real Daytona sandbox run. Fix before claiming this checkpoint is passed.
+3. Is the RocketRide pipeline actually deployed to RocketRide Cloud (not just running locally)? — **NOT STARTED.** This is an organizer must-have; don't skip it even under time pressure.
 
 If either is broken, everyone drops what they're doing and fixes the loop before adding anything else. This checkpoint is the whole point of the roadmap — miss it and the demo is at risk.
 
@@ -88,10 +99,11 @@ If either is broken, everyone drops what they're doing and fixes the loop before
 
 ## Phase 2 (2:20-3:40): Integrate, fix, cut what's broken
 
+- Build the RocketRide pipeline, deploy to RocketRide Cloud, repoint `trigger-analyze` at it — this is the priority fix in this phase, not optional cleanup.
 - Wire any stubbed Butterbase routes to real Scout/Analyst calls.
 - Fix whatever broke at the Phase 1.5 checkpoint.
 - If Scout or Analyst is still flaky, simplify the extraction/job logic rather than debugging it further — a dumb version that works beats a smart version that doesn't demo.
-- Only now: if both agents are solid and there's real time left, start Planner (single LLM call over graph contents via Nebius — inspects graph, suggests weakest-evidence area as one `AgentTask`-style output). Whoever finishes their track first picks this up. If it's not solid by 3:40, cut it — leave the button greyed out.
+- Only now: if both agents are solid and there's real time left, start Planner (single LLM call over graph contents, run inside the RocketRide pipeline — inspects graph, suggests weakest-evidence area as one `AgentTask`-style output). Whoever finishes their track first picks this up. If it's not solid by 3:40, cut it — leave the button greyed out.
 
 ---
 
