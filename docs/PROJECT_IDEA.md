@@ -1,7 +1,7 @@
 # Project Idea: Graph-native Research Command Center for Semiconductor Scientists
 
 ## One-liner
-A dashboard where a scientist sets a research goal, launches agents, and watches a live knowledge graph grow as agents research, analyze, and write results back — powered by Neo4j (graph), Daytona (execution), Butterbase (backbone), and optionally Nebius (LLM).
+A dashboard where a scientist sets a research goal, launches agents, and watches a live knowledge graph grow as agents research, analyze, and write results back — powered by Neo4j (graph), Daytona (execution), Butterbase (backbone), and RocketRide (orchestrator between Scout and Analyst, deployed as a managed RocketRide Cloud endpoint).
 
 ## Theme
 "Thoughtful Agents for Productivity."
@@ -21,7 +21,7 @@ Demo research goal (hardcode this, don't build goal-editing UI):
 Takes a small fixed set of pre-selected sources (2-3 URLs or pasted text, NOT live web crawling if time is short) → extracts techniques/metrics/findings via LLM → writes nodes to Neo4j.
 
 ### 2. Analyst Agent
-Takes findings from Neo4j → sends to Daytona → runs ONE analysis job (pick Type B: comparative ranking, or Type C: Pareto chart — not both) → writes `ExperimentRun` + `ResultArtifact` back to graph.
+Takes findings from Neo4j → sent to a **RocketRide Cloud pipeline** (must-have, mandated by organizers), which orchestrates the run: starts the Daytona job, waits on it, returns the result → Butterbase writes `ExperimentRun` + `ResultArtifact` back to graph. RocketRide is the orchestrator sitting between Scout and Analyst — it does not replace Daytona, it initiates/monitors the Daytona job. ONE analysis job (pick Type B: comparative ranking, or Type C: Pareto chart — not both).
 
 ### 3. Planner Agent
 Inspects graph → LLM call: "given these findings, what's the weakest-evidence area?" → creates one `AgentTask` suggestion node. This is the cheapest agent to build — a single LLM call over graph contents. Do it last if time allows; cuttable first if not.
@@ -37,7 +37,9 @@ Do not build the full 12-relationship ontology from the original spec. Add relat
 - **Butterbase**: backend/app backbone — API layer, task/job state, orchestration glue between UI and Neo4j/Daytona
 - **Neo4j**: the graph — techniques, findings, metrics, runs, artifacts
 - **Daytona**: isolated sandbox that runs the one analysis job (Python script → chart/table)
-- **Nebius** (optional, cut first if behind): LLM calls for extraction/ranking-explanation/planner suggestion
+- **RocketRide** (must-have, organizer-mandated): orchestrator pipeline sitting between Scout and Analyst. Built visually, deployed to RocketRide Cloud as a managed endpoint — `trigger-analyze` calls it instead of hitting Daytona directly. The pipeline starts/initiates the Daytona job, waits on it, and hands the result back for Butterbase to write to Neo4j. This is now the mechanism that fixes the old "Analyze doesn't really call Daytona" integration risk — see ROADMAP.md.
+
+LLM calls (extraction, ranking-explanation, planner suggestion) run inside the RocketRide pipeline where needed — no separate LLM provider integration (Nebius plan dropped).
 
 ## UI (single page, 3 panels)
 - **Left**: goal card (static text) + 3 buttons (Scout / Analyze / Plan Next) + task queue list
@@ -49,12 +51,13 @@ Do not build the full 12-relationship ontology from the original spec. Add relat
 2. Neo4j seeded with a small starter graph (5-10 nodes) so the graph isn't empty at demo start
 3. Graph visualization renders and updates
 4. Scout button → adds real nodes from at least 1 source
-5. Analyze button → real Daytona job runs → real artifact appears in graph + UI
-6. One clean demo script, rehearsed
+5. Analyze button → RocketRide Cloud pipeline orchestrates a real Daytona job → real artifact appears in graph + UI
+6. RocketRide pipeline built + deployed to RocketRide Cloud (not just local/Docker) — organizer requirement
+7. One clean demo script, rehearsed
 
 ## Nice-to-have (only after must-have works and is demoed once)
 - Planner agent
-- Nebius-powered extraction (vs. simpler regex/manual parsing)
+- LLM-powered extraction inside the RocketRide pipeline (vs. simpler regex/manual parsing)
 - Second Daytona job type
 - Contradiction detection
 - Graph node click-to-inspect detail panel
@@ -74,14 +77,16 @@ Do not build the full 12-relationship ontology from the original spec. Add relat
 3. **Logan** — Scout + LLM extraction: source parsing, entity extraction, Neo4j writes
 4. **Ramis** — Analyst + Daytona: sandbox job script, execution trigger, artifact write-back
 
+**RocketRide pipeline (new, organizer-mandated, cross-cutting)** — owned jointly by **Ramis + Rohan**: sits between Butterbase's `trigger-analyze` and the Daytona SDK job Ramis already built. Ramis exposes the Daytona job logic in a form the pipeline can call; Rohan repoints `trigger-analyze` at the deployed RocketRide Cloud endpoint instead of the current dead Daytona URL stub. Flag before editing `trigger-analyze.ts` or `backend/src/daytona/*` — both are in scope for this change.
+
 Planner agent gets picked up by whoever finishes first.
 
 ## Demo script (rehearse this exact sequence)
 1. Open dashboard, seeded graph visible, goal shown
 2. Click Scout → new nodes animate in, findings feed updates
-3. Click Analyze → job card shows running → artifact (chart/table) appears in graph + right panel
+3. Click Analyze → job card shows running (RocketRide pipeline orchestrating the Daytona job in the background) → artifact (chart/table) appears in graph + right panel
 4. (If time) Click Plan Next → gap suggestion appears
-5. Close with the one-line takeaway the analysis produced
+5. Close with the one-line takeaway the analysis produced. Mention RocketRide by name as the orchestrator — it's an organizer-mandated must-have, worth calling out explicitly.
 
 ## Checkpoint schedule (5 hours left, loose, adjust live)
 - 0:00-0:20: scaffold + schema + seed data + interface contracts agreed and committed

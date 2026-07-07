@@ -10,7 +10,7 @@ See [CLAUDE.md](./CLAUDE.md) for how the coding agent should operate on this rep
 - Backend/orchestration: Butterbase
 - Graph DB: Neo4j
 - Execution sandbox: Daytona
-- LLM (optional): Nebius
+- Pipeline orchestrator (Scout → Analyst): RocketRide, deployed to RocketRide Cloud
 
 ## Status
 Hackathon build in progress. 8-hour build window, 4 contributors.
@@ -27,7 +27,7 @@ NEO4J_PASSWORD=
 NEO4J_DATABASE=
 DAYTONA_API_KEY=
 BUTTERBASE_APP_ID=
-NEBIUS_API_KEY=       # optional
+ROCKETRIDE_PIPELINE_URL=   # deployed RocketRide Cloud endpoint, called from trigger-analyze
 ```
 
 ## Repo layout (target)
