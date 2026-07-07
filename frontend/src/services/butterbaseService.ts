@@ -59,8 +59,11 @@ export class ButterbaseService implements ConstructorService {
       const job = change.record as unknown as Job;
       cb({ kind: 'job', job });
       if (job.status === 'done') {
+        // Both agents grow the graph; refetch it.
         void this.getGraph().then((graph) => cb({ kind: 'graph', graph }));
-        if (job.result_ref) {
+        // Only analyze jobs point result_ref at an artifact id. Scout's
+        // result_ref is a JSON summary ({ run_id, nodes, edges }), not an id.
+        if (job.type === 'analyze' && job.result_ref) {
           void this.getArtifact(job.result_ref).then((artifact) => {
             if (artifact) cb({ kind: 'artifact', ref: job.result_ref!, artifact });
           });
