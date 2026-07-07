@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from 'cytoscape';
 import fcose from 'cytoscape-fcose';
 import { NODE_COLORS, type GraphData, type GraphNode, type NodeType } from '../types';
@@ -11,17 +11,15 @@ interface Props {
   onNodeClick?: (node: GraphNode | null) => void;
 }
 
-// Per-type visual weight. Hubs (goal) are big, leaves (findings) small so the
-// graph reads as a hierarchy instead of a uniform blob.
 const NODE_SIZE: Record<NodeType, number> = {
   ResearchGoal: 58,
   Technique: 40,
-  Metric: 36,
-  Source: 34,
-  ExperimentRun: 36,
-  ResultArtifact: 36,
-  AgentTask: 30,
-  Finding: 22,
+  Metric: 34,
+  Source: 30,
+  ExperimentRun: 18,
+  ResultArtifact: 18,
+  AgentTask: 22,
+  Finding: 14,
 };
 
 const NODE_SHAPE: Record<NodeType, cytoscape.Css.NodeShape> = {
@@ -56,23 +54,35 @@ function toElements(graph: GraphData): ElementDefinition[] {
   ];
 }
 
+const CONCENTRIC_WEIGHT: Record<NodeType, number> = {
+  ResearchGoal:   10,
+  Technique:       8,
+  Metric:          6,
+  Source:          5,
+  Finding:         3,
+  ExperimentRun:   2,
+  ResultArtifact:  1,
+  AgentTask:       4,
+};
+
 const LAYOUT = {
-  name: 'fcose',
-  quality: 'default',
+  name: 'concentric',
   animate: true,
   animationDuration: 600,
-  randomize: false,
   fit: true,
   padding: 60,
-  nodeSeparation: 120,
-  idealEdgeLength: 110,
-  nodeRepulsion: 8000,
-  gravity: 0.25,
-  gravityRange: 3.8,
+  minNodeSpacing: 28,
+  avoidOverlap: true,
+  nodeDimensionsIncludeLabels: false,
+  concentric: (node: { data: (key: string) => string }) =>
+    CONCENTRIC_WEIGHT[node.data('type') as NodeType] ?? 3,
+  levelWidth: () => 1,
 } as const;
 
 export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [newToast, setNewToast] = useState<{ count: number; key: number } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cyRef = useRef<Core | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
   onNodeClickRef.current = onNodeClick;
@@ -114,9 +124,9 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
             'transition-duration': 180,
           },
         },
-        // Findings are numerous — hide their labels until relevant to cut clutter.
+        // Leaf/admin nodes — hide labels to reduce clutter on dense graphs.
         {
-          selector: 'node[type = "Finding"]',
+          selector: 'node[type = "Finding"], node[type = "ExperimentRun"], node[type = "ResultArtifact"]',
           style: { 'font-size': 7, 'text-opacity': 0 },
         },
         {
@@ -242,10 +252,20 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
 
     if (added.length) {
       cy.layout(LAYOUT).run();
+
+      // Toast banner
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      setNewToast({ count: added.length, key: Date.now() });
+      toastTimer.current = setTimeout(() => setNewToast(null), 3000);
+
+      // Per-node pulse: flash bright white → type color → settle
       added.forEach((id) => {
         const node = cy.getElementById(id);
-        node.addClass('new');
-        setTimeout(() => node.removeClass('new'), 2200);
+        const baseColor = NODE_COLORS[node.data('type') as NodeType] ?? '#94a3b8';
+        node
+          .animate({ style: { 'background-color': '#ffffff', 'border-width': 10, 'border-color': '#38bdf8', 'width': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.7, 'height': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.7 } }, { duration: 180 })
+          .animate({ style: { 'background-color': baseColor, 'border-width': 6, 'border-color': '#38bdf8', 'width': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.3, 'height': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.3 } }, { duration: 300 })
+          .animate({ style: { 'background-color': baseColor, 'border-width': 2, 'border-color': '#ffffff', 'width': NODE_SIZE[node.data('type') as NodeType] ?? 28, 'height': NODE_SIZE[node.data('type') as NodeType] ?? 28 } }, { duration: 700 });
       });
     }
   }, [graph]);
@@ -295,6 +315,25 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
           ↻
         </CtrlButton>
       </div>
+
+      {/* New-node toast */}
+      {newToast && (
+        <div
+          key={newToast.key}
+          style={{
+            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
+            color: '#fff', fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 12, fontWeight: 700, letterSpacing: '0.05em',
+            padding: '6px 18px', borderRadius: 20,
+            boxShadow: '0 4px 24px rgba(14,165,233,0.5)',
+            pointerEvents: 'none', zIndex: 20,
+            animation: 'dp-slidedown 0.25s ease',
+          }}
+        >
+          ↑ {newToast.count} new node{newToast.count > 1 ? 's' : ''} added
+        </div>
+      )}
     </div>
   );
 }

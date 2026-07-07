@@ -120,7 +120,10 @@ export default function App() {
 
   const analyzeRuns = sortRunsDesc(jobs);
   const analyzing = jobs.some(
-    (j) => j.type === 'analyze' && (j.status === 'running' || j.status === 'pending'),
+    (j) =>
+      j.type === 'analyze' &&
+      (j.status === 'running' || j.status === 'pending') &&
+      Date.now() - new Date(j.created_at).getTime() < 10 * 60 * 1000,
   );
 
   const onToggleScout = useCallback(() => {
