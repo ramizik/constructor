@@ -12,23 +12,23 @@ export function AnalyzeModal({ onClose, onSubmit }: AnalyzeModalProps) {
 
   return (
     <Shell title="Run Analysis" onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-400">
+      <p className="mb-3 text-xs text-slate-500">
         Send current findings to a Daytona sandbox job and write results back to the graph.
       </p>
-      <label className="block text-xs text-slate-400">Job type</label>
+      <label className="block text-xs text-slate-500">Job type</label>
       <select
         value={jobType}
         onChange={(e) => setJobType(e.target.value as AnalyzeParams['jobType'])}
-        className="mt-1 w-full rounded bg-slate-800 px-2 py-1.5 text-sm text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
+        className="mt-1 w-full rounded bg-white px-2 py-1.5 text-sm text-slate-800 outline-none ring-1 ring-slate-300 focus:ring-sky-500"
       >
         <option value="pareto">Pareto chart (TOPS/W vs Memory)</option>
         <option value="ranking">Comparative ranking table (fallback)</option>
       </select>
-      <label className="mt-4 block text-xs text-slate-400">Note (optional)</label>
+      <label className="mt-4 block text-xs text-slate-500">Note (optional)</label>
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        className="mt-1 w-full rounded bg-slate-800 px-2 py-1.5 text-sm text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
+        className="mt-1 w-full rounded bg-white px-2 py-1.5 text-sm text-slate-800 outline-none ring-1 ring-slate-300 focus:ring-sky-500"
       />
       <Actions
         onClose={onClose}
@@ -50,16 +50,16 @@ function Shell({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
       onClick={onClose}
     >
       <div
-        className="w-[380px] rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-xl"
+        className="w-[380px] rounded-lg border border-slate-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300">
+          <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             ✕
           </button>
         </div>
@@ -84,14 +84,14 @@ function Actions({
     <div className="mt-5 flex justify-end gap-2">
       <button
         onClick={onClose}
-        className="rounded px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200"
+        className="rounded px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700"
       >
         Cancel
       </button>
       <button
         onClick={onSubmit}
         disabled={disabled}
-        className="rounded bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {label}
       </button>

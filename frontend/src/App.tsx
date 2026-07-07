@@ -145,8 +145,8 @@ export default function App() {
   }, []);
 
   return (
-    <div className="grid h-screen grid-cols-[280px_1fr_340px] bg-[#0b0f17]">
-      <aside className="border-r border-slate-800">
+    <div className="grid h-screen grid-cols-[280px_1fr_340px] bg-slate-50">
+      <aside className="border-r border-slate-200 bg-white">
         <LeftPanel
           jobs={jobs}
           busy={analyzing}
@@ -160,7 +160,7 @@ export default function App() {
       </aside>
 
       <main className="relative">
-        <div className="absolute left-3 top-3 z-10 rounded bg-slate-900/70 px-2 py-1 text-[10px] text-slate-400">
+        <div className="absolute left-3 top-3 z-10 rounded border border-slate-200 bg-white/80 px-2 py-1 text-[10px] text-slate-500 shadow-sm backdrop-blur">
           Knowledge Graph · {graph.nodes.length} nodes · {graph.edges.length} edges
         </div>
         <GraphCanvas
@@ -170,7 +170,7 @@ export default function App() {
         />
       </main>
 
-      <aside className="border-l border-slate-800">
+      <aside className="border-l border-slate-200 bg-white">
         <RightPanel
           analyzeRuns={analyzeRuns}
           selectedRunId={selectedRunId}

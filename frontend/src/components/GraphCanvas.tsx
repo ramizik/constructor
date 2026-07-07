@@ -96,20 +96,20 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
             width: (ele: NodeSingular) => String(NODE_SIZE[ele.data('type') as NodeType] ?? 26),
             height: (ele: NodeSingular) => String(NODE_SIZE[ele.data('type') as NodeType] ?? 26),
             label: 'data(label)',
-            color: '#e2e8f0',
+            color: '#334155',
             'font-size': 9,
             'font-weight': 500,
             'text-wrap': 'wrap',
             'text-max-width': '90px',
             'text-valign': 'bottom',
             'text-margin-y': 4,
-            'text-background-color': '#0b0f17',
-            'text-background-opacity': 0.55,
+            'text-background-color': '#ffffff',
+            'text-background-opacity': 0.8,
             'text-background-padding': '2px',
             'text-background-shape': 'roundrectangle',
             'border-width': 2,
-            'border-color': '#0b0f17',
-            'border-opacity': 0.9,
+            'border-color': '#ffffff',
+            'border-opacity': 0.95,
             'transition-property': 'opacity, border-color, border-width',
             'transition-duration': 180,
           },
@@ -123,9 +123,9 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
           selector: 'edge',
           style: {
             width: '1.4',
-            'line-color': '#273449',
-            'line-opacity': 0.7,
-            'target-arrow-color': '#334155',
+            'line-color': '#cbd5e1',
+            'line-opacity': 0.8,
+            'target-arrow-color': '#94a3b8',
             'target-arrow-shape': 'triangle',
             'arrow-scale': 0.7,
             'curve-style': 'bezier',
@@ -134,8 +134,8 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
             color: '#64748b',
             'text-opacity': 0,
             'text-rotation': 'autorotate',
-            'text-background-color': '#0b0f17',
-            'text-background-opacity': 0.7,
+            'text-background-color': '#ffffff',
+            'text-background-opacity': 0.85,
             'text-background-padding': '2px',
             'transition-property': 'line-opacity, line-color, width',
             'transition-duration': 180,
@@ -158,7 +158,7 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
         {
           selector: 'node.highlight',
           style: {
-            'border-color': '#f8fafc',
+            'border-color': '#0f172a',
             'border-width': 3,
             'text-opacity': 1,
             'font-size': 10,
@@ -312,7 +312,7 @@ function CtrlButton({
     <button
       title={title}
       onClick={onClick}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700/70 bg-slate-900/80 text-base text-slate-300 backdrop-blur transition hover:border-sky-500/60 hover:text-sky-300"
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white/90 text-base text-slate-600 shadow-sm backdrop-blur transition hover:border-sky-400 hover:text-sky-600"
     >
       {children}
     </button>
@@ -331,8 +331,8 @@ const LEGEND_TYPES: NodeType[] = [
 
 function Legend() {
   return (
-    <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-slate-800/80 bg-slate-900/70 p-2.5 backdrop-blur">
-      <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+    <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-slate-200 bg-white/85 p-2.5 shadow-sm backdrop-blur">
+      <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
         Node types
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
@@ -342,7 +342,7 @@ function Legend() {
               className="h-2.5 w-2.5 shrink-0 rounded-sm"
               style={{ background: NODE_COLORS[t] }}
             />
-            <span className="text-[10px] text-slate-400">{t}</span>
+            <span className="text-[10px] text-slate-500">{t}</span>
           </div>
         ))}
       </div>

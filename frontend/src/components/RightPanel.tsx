@@ -61,13 +61,13 @@ export function RightPanel({
                   onClick={() => onSelectRun(run.id)}
                   className={`flex w-full items-center justify-between rounded border px-2.5 py-2 text-left text-xs transition-colors ${
                     active
-                      ? 'border-sky-600/60 bg-sky-500/10'
-                      : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                      ? 'border-sky-400 bg-sky-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
                   <span className="flex flex-col">
-                    <span className={active ? 'text-sky-200' : 'text-slate-300'}>{label}</span>
-                    <span className="text-[10px] text-slate-500">{relTime(run.created_at)}</span>
+                    <span className={active ? 'text-sky-700' : 'text-slate-600'}>{label}</span>
+                    <span className="text-[10px] text-slate-400">{relTime(run.created_at)}</span>
                   </span>
                   <StatusBadge status={run.status} />
                 </button>
@@ -84,7 +84,7 @@ export function RightPanel({
           ) : selectedRun.status === 'running' || selectedRun.status === 'pending' ? (
             <Empty>Run in progress — artifact incoming…</Empty>
           ) : selectedRun.message ? (
-            <p className="text-xs text-red-400">{selectedRun.message}</p>
+            <p className="text-xs text-red-600">{selectedRun.message}</p>
           ) : (
             <Empty>No artifact for this run.</Empty>
           )}
@@ -100,23 +100,23 @@ export function RightPanel({
             {findings.map((f) => (
               <div
                 key={f.id}
-                className="rounded border border-slate-800 bg-slate-900/60 p-2.5 text-xs"
+                className="rounded border border-slate-200 bg-slate-50 p-2.5 text-xs"
               >
-                <p className="text-slate-200">{f.text}</p>
+                <p className="text-slate-700">{f.text}</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
                   {f.value != null && (
-                    <span className="rounded bg-yellow-500/15 px-1.5 py-0.5 text-yellow-300">
+                    <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-yellow-700">
                       {f.value}
                       {f.unit ? ` ${f.unit}` : ''}
                     </span>
                   )}
                   {f.technique && (
-                    <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-sky-300">
+                    <span className="rounded bg-sky-100 px-1.5 py-0.5 text-sky-700">
                       {f.technique}
                     </span>
                   )}
                   {f.source && (
-                    <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-300">
+                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-violet-700">
                       {f.source}
                     </span>
                   )}
@@ -152,22 +152,22 @@ function TrendSparkline({
   const latest = ordered[ordered.length - 1];
 
   return (
-    <div className="mt-2 rounded border border-slate-800 bg-slate-900/60 p-2.5">
+    <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2.5">
       <div className="mb-1 flex items-center justify-between text-[10px] text-slate-500">
         <span className="font-semibold uppercase tracking-wide">Leading TOPS/W · trend</span>
-        <span className="text-emerald-300">
+        <span className="text-emerald-600">
           {latest.best_technique} · {latest.best_tops_w}
         </span>
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="block">
-        <path d={d} fill="none" stroke="#38bdf8" strokeWidth="1.5" />
+        <path d={d} fill="none" stroke="#0284c7" strokeWidth="1.5" />
         {ordered.map((p, i) => (
           <circle
             key={p.run_id}
             cx={x(i)}
             cy={y(p.best_tops_w)}
             r={p.run_id === selectedRunId ? 4 : 2.5}
-            fill={p.run_id === selectedRunId ? '#f472b6' : '#38bdf8'}
+            fill={p.run_id === selectedRunId ? '#db2777' : '#0284c7'}
           />
         ))}
       </svg>
@@ -177,8 +177,8 @@ function TrendSparkline({
 
 function ArtifactView({ artifact }: { artifact: Artifact }) {
   return (
-    <div className="rounded border border-slate-800 bg-slate-900/60 p-3">
-      <div className="mb-2 text-xs font-medium text-slate-200">{artifact.title}</div>
+    <div className="rounded border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-2 text-xs font-medium text-slate-700">{artifact.title}</div>
       {artifact.kind === 'table' ? (
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
@@ -193,7 +193,7 @@ function ArtifactView({ artifact }: { artifact: Artifact }) {
             </thead>
             <tbody>
               {artifact.rows.map((row, i) => (
-                <tr key={i} className="border-t border-slate-800 text-slate-300">
+                <tr key={i} className="border-t border-slate-200 text-slate-600">
                   {row.map((cell, j) => (
                     <td key={j} className="py-1 pr-2">
                       {cell}
@@ -208,7 +208,7 @@ function ArtifactView({ artifact }: { artifact: Artifact }) {
         <img src={artifact.image_url} alt={artifact.title} className="w-full rounded" />
       )}
       {artifact.takeaway && (
-        <p className="mt-2 border-t border-slate-800 pt-2 text-[11px] italic text-emerald-300">
+        <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] italic text-emerald-600">
           {artifact.takeaway}
         </p>
       )}
@@ -235,15 +235,15 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: GraphData }) {
 
   return (
     <div
-      className="rounded-lg border bg-slate-900/70 p-3 text-xs"
-      style={{ borderColor: color + '55' }}
+      className="rounded-lg border bg-white p-3 text-xs"
+      style={{ borderColor: color + '66' }}
     >
       <div className="mb-2 flex items-start gap-2">
         <span
           className="mt-0.5 h-3 w-3 shrink-0 rounded-full"
           style={{ background: color, boxShadow: `0 0 8px ${color}99` }}
         />
-        <span className="font-semibold leading-snug text-slate-100">{node.label}</span>
+        <span className="font-semibold leading-snug text-slate-800">{node.label}</span>
       </div>
       <div className="mb-2 flex items-center gap-2">
         <span
@@ -252,25 +252,25 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: GraphData }) {
         >
           {node.type}
         </span>
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[10px] text-slate-400">
           {connections.length} connection{connections.length === 1 ? '' : 's'}
         </span>
       </div>
 
       {props.length > 0 && (
-        <dl className="mt-2 space-y-1 border-t border-slate-800 pt-2">
+        <dl className="mt-2 space-y-1 border-t border-slate-200 pt-2">
           {props.map(([k, v]) => (
             <div key={k} className="flex gap-2">
               <dt className="w-24 shrink-0 truncate text-slate-500">{k}</dt>
-              <dd className="truncate font-medium text-slate-200">{String(v)}</dd>
+              <dd className="truncate font-medium text-slate-700">{String(v)}</dd>
             </div>
           ))}
         </dl>
       )}
 
       {connections.length > 0 && (
-        <div className="mt-2 border-t border-slate-800 pt-2">
-          <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
+        <div className="mt-2 border-t border-slate-200 pt-2">
+          <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
             Connections
           </div>
           <div className="space-y-1">
@@ -278,17 +278,17 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: GraphData }) {
               const oc = NODE_COLORS[c.other!.type as NodeType] ?? '#94a3b8';
               return (
                 <div key={i} className="flex items-center gap-1.5">
-                  <span className="shrink-0 text-[9px] text-slate-500">
+                  <span className="shrink-0 text-[9px] text-slate-400">
                     {c.outgoing ? '→' : '←'}
                   </span>
-                  <span className="shrink-0 rounded bg-slate-800 px-1 py-0.5 text-[9px] font-medium text-slate-400">
+                  <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[9px] font-medium text-slate-500">
                     {c.rel}
                   </span>
                   <span
                     className="h-2 w-2 shrink-0 rounded-full"
                     style={{ background: oc }}
                   />
-                  <span className="truncate text-[10px] text-slate-300">
+                  <span className="truncate text-[10px] text-slate-600">
                     {c.other!.label}
                   </span>
                 </div>
@@ -298,17 +298,17 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: GraphData }) {
         </div>
       )}
 
-      <p className="mt-2 truncate text-[10px] text-slate-600">{node.id}</p>
+      <p className="mt-2 truncate text-[10px] text-slate-400">{node.id}</p>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: Job['status'] }) {
   const map: Record<Job['status'], string> = {
-    pending: 'bg-slate-700 text-slate-300',
-    running: 'bg-sky-500/20 text-sky-300',
-    done: 'bg-emerald-500/20 text-emerald-300',
-    error: 'bg-red-500/20 text-red-300',
+    pending: 'bg-slate-200 text-slate-600',
+    running: 'bg-sky-100 text-sky-700',
+    done: 'bg-emerald-100 text-emerald-700',
+    error: 'bg-red-100 text-red-700',
   };
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${map[status]}`}>
@@ -337,7 +337,7 @@ function Section({
           <button
             type="button"
             onClick={onClose}
-            className="text-[10px] text-slate-500 hover:text-slate-300"
+            className="text-[10px] text-slate-400 hover:text-slate-600"
           >
             Clear
           </button>
@@ -349,7 +349,7 @@ function Section({
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-slate-600">{children}</p>;
+  return <p className="text-xs text-slate-400">{children}</p>;
 }
 
 function relTime(iso: string): string {
