@@ -164,14 +164,46 @@ export default async function handler(req: Request, ctx: Ctx): Promise<Response>
   const params = (await req.json().catch(() => ({}))) as {
     sources?: string[];
     focus_hint?: string;
+    mode?: 'auto';
   };
   const id = `job_scout_${Date.now()}`;
   const run_id = runId();
+
+  // Auto mode (SCOUT_REQUIREMENTS §2.1): release one un-ingested source per call so
+  // the frontend toggle can grow the graph tick by tick. The write path is unchanged
+  // and idempotent — this only picks WHICH source to send through it.
+  if (params.mode === 'auto') {
+    const nextKey = await pickNextAutoSource(ctx.env);
+    if (!nextKey) {
+      // Pool exhausted — record a no-op job for a real job_id, signal frontend to stop.
+      await jobsInsert(ctx.db, { id, type: 'scout', status: 'done', params });
+      await jobsUpdate(ctx.db, id, {
+        result_ref: JSON.stringify({ run_id, nodes: 0, edges: 0, done: true }),
+      });
+      return ok({ job_id: id, run_id, nodes: 0, edges: 0, done: true });
+    }
+    await jobsInsert(ctx.db, { id, type: 'scout', status: 'pending', params });
+    ctx.waitUntil(runScout(ctx, id, run_id, [nextKey]));
+    return ok({ job_id: id, run_id, done: false });
+  }
 
   await jobsInsert(ctx.db, { id, type: 'scout', status: 'pending', params });
 
   ctx.waitUntil(runScout(ctx, id, run_id, params.sources));
   return ok({ job_id: id, run_id });
+}
+
+// First FIXTURES key whose Source is not yet in Neo4j, or null if all ingested.
+// Uses srcId()/the same slug rule the writer uses, so the diff can't drift from
+// what runScout actually MERGEs. Seed Source ids differ from FIXTURES ids, so seed
+// sources never get mistaken for scouted ones.
+async function pickNextAutoSource(env: Env): Promise<string | null> {
+  const res = await cypher('MATCH (s:Source) RETURN s.id AS id', {}, env);
+  const ingested = new Set(rows<{ id: string }>(res).map((r) => r.id));
+  for (const key of Object.keys(FIXTURES)) {
+    if (!ingested.has(srcId(FIXTURES[key].url))) return key;
+  }
+  return null;
 }
 
 async function runScout(ctx: Ctx, jobId: string, run_id: string, sources?: string[]) {
