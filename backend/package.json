@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "daytona:test": "tsx src/daytona/test-connection.ts"
+    "daytona:test": "tsx src/daytona/test-connection.ts",
+    "analyze:test": "tsx src/daytona/run-analyze-job.ts"
   },
   "dependencies": {
     "@daytona/sdk": "^0.194.0",
