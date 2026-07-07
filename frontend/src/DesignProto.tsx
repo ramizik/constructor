@@ -469,6 +469,7 @@ export default function DesignProto() {
             graph={graph}
             selectedId={selectedNode?.id ?? null}
             onNodeClick={(n) => setSelectedNode(n)}
+            scanning={analyzing}
           />
         </main>
 

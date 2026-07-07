@@ -9,6 +9,8 @@ interface Props {
   graph: GraphData;
   selectedId?: string | null;
   onNodeClick?: (node: GraphNode | null) => void;
+  /** true while an Analyze job is running — shows a scanning overlay so the graph visibly "does something" during the wait. */
+  scanning?: boolean;
 }
 
 const NODE_SIZE: Record<NodeType, number> = {
@@ -79,7 +81,7 @@ const LAYOUT = {
   levelWidth: () => 1,
 } as const;
 
-export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
+export function GraphCanvas({ graph, selectedId, onNodeClick, scanning }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [newToast, setNewToast] = useState<{ count: number; key: number } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -258,15 +260,37 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
       setNewToast({ count: added.length, key: Date.now() });
       toastTimer.current = setTimeout(() => setNewToast(null), 3000);
 
-      // Per-node pulse: flash bright white → type color → settle
+      // Per-node pulse: flash bright white → type color → settle.
+      // Analyze-run nodes get a bigger/longer flash — they're small (18px)
+      // and easy to miss amid a dense graph otherwise.
+      const runIds = added.filter((id) => {
+        const t = cy.getElementById(id).data('type');
+        return t === 'ExperimentRun' || t === 'ResultArtifact';
+      });
       added.forEach((id) => {
         const node = cy.getElementById(id);
+        const isRun = runIds.includes(id);
         const baseColor = NODE_COLORS[node.data('type') as NodeType] ?? '#94a3b8';
+        const size = NODE_SIZE[node.data('type') as NodeType] ?? 28;
+        const peak = isRun ? size * 2.6 : size * 1.7;
+        const mid = isRun ? size * 1.9 : size * 1.3;
         node
-          .animate({ style: { 'background-color': '#ffffff', 'border-width': 10, 'border-color': '#38bdf8', 'width': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.7, 'height': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.7 } }, { duration: 180 })
-          .animate({ style: { 'background-color': baseColor, 'border-width': 6, 'border-color': '#38bdf8', 'width': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.3, 'height': (NODE_SIZE[node.data('type') as NodeType] ?? 28) * 1.3 } }, { duration: 300 })
-          .animate({ style: { 'background-color': baseColor, 'border-width': 2, 'border-color': '#ffffff', 'width': NODE_SIZE[node.data('type') as NodeType] ?? 28, 'height': NODE_SIZE[node.data('type') as NodeType] ?? 28 } }, { duration: 700 });
+          .animate({ style: { 'background-color': '#ffffff', 'border-width': isRun ? 14 : 10, 'border-color': '#38bdf8', 'width': peak, 'height': peak } }, { duration: isRun ? 260 : 180 })
+          .animate({ style: { 'background-color': baseColor, 'border-width': isRun ? 8 : 6, 'border-color': '#38bdf8', 'width': mid, 'height': mid } }, { duration: isRun ? 500 : 300 })
+          .animate({ style: { 'background-color': baseColor, 'border-width': 2, 'border-color': '#ffffff', 'width': size, 'height': size } }, { duration: isRun ? 1100 : 700 });
       });
+
+      // Fly the camera to the new run so it's unmissable, instead of just
+      // relying on the whole-graph relayout to reveal it somewhere in frame.
+      if (runIds.length) {
+        const runEles = runIds
+          .map((id) => cy.getElementById(id))
+          .reduce((acc, el) => acc.union(el), cy.collection());
+        const focusSet = runEles.union(runEles.closedNeighborhood());
+        setTimeout(() => {
+          cy.animate({ fit: { eles: focusSet, padding: 140 } }, { duration: 900, easing: 'ease-in-out' });
+        }, 650);
+      }
     }
   }, [graph]);
 
@@ -298,6 +322,34 @@ export function GraphCanvas({ graph, selectedId, onNodeClick }: Props) {
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+
+      {scanning && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+          style={{ mixBlendMode: 'multiply' }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: '220%',
+              height: '220%',
+              transform: 'translate(-50%, -50%)',
+              background:
+                'conic-gradient(from 0deg, rgba(56,189,248,0) 0deg, rgba(56,189,248,0) 300deg, rgba(56,189,248,0.28) 340deg, rgba(56,189,248,0.55) 360deg)',
+              animation: 'gc-radar-spin 2.4s linear infinite',
+            }}
+          />
+          <div
+            className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #0ea5e9, #6366f1)', fontFamily: 'JetBrains Mono, monospace' }}
+          >
+            ⟳ RocketRide analyzing…
+          </div>
+          <style>{`@keyframes gc-radar-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }`}</style>
+        </div>
+      )}
 
       <Legend />
 
