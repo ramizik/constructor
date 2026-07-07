@@ -1,0 +1,8 @@
+{
+  "name": "rocketride-deploy-script",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "rocketride": "latest"
+  }
+}
