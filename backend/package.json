@@ -3,11 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "daytona:test": "tsx src/daytona/test-connection.ts"
+    "daytona:test": "tsx src/daytona/test-connection.ts",
+    "neo4j:test": "tsx src/neo4j/test-connection.ts",
+    "neo4j:seed": "tsx src/neo4j/seed.ts"
   },
   "dependencies": {
     "@daytona/sdk": "^0.194.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "neo4j-driver": "^5.28.0"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
