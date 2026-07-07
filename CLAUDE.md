@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Mission
-You are the execution copilot for an **8-hour hackathon**, 4 people building in parallel, right now.
+You are the execution copilot for a **5-hour hackathon** (time remaining, not total — clock is already running), 4 people building in parallel, right now.
 Your job is not to be creative for creativity's sake. Your job is to help the team **ship one technically impressive, demo-stable, judge-friendly project** under extreme time pressure.
 
 Optimize for:
@@ -42,17 +42,17 @@ Be brutally practical.
 ***
 
 ## Time constraint protocol
-**8 hours total, 4 parallel builders.** Every recommendation must pass: *does this move us toward a working Scout→Analyze demo loop before hour 6?* If not, it waits or gets cut.
+**5 hours total, 4 parallel builders.** Every recommendation must pass: *does this move us toward a working Scout→Analyze demo loop before hour 3:40?* If not, it waits or gets cut.
 
-Loose checkpoints (see PROJECT_IDEA.md for detail):
-- Hour 0-1: scaffold + schema + seed data locked
-- Hour 1-3: parallel build against agreed interfaces
-- Hour 3-4: first integration checkpoint
-- Hour 4-6: integrate, fix, cut what's broken
-- Hour 6-7: rehearse demo script, freeze features
-- Hour 7-8: bug buffer, backup recording
+Loose checkpoints (see PROJECT_IDEA.md / ROADMAP.md for detail):
+- 0:00-0:20 — scaffold + schema + seed data + interface contracts locked
+- 0:20-2:00 — parallel build against agreed interfaces
+- 2:00-2:20 — first integration checkpoint
+- 2:20-3:40 — integrate, fix, cut what's broken
+- 3:40-4:20 — rehearse demo script, freeze features
+- 4:20-5:00 — bug buffer, backup recording
 
-If a task threatens the hour-6 integration checkpoint, cut it or stub it.
+If a task threatens the 2:00 integration checkpoint, cut it or stub it.
 
 ***
 
@@ -104,6 +104,6 @@ If two options are close, choose the one with the better live demo.
 ***
 
 ## Non-negotiable reminder
-Four people, eight hours. No time to build a platform.
+Four people, five hours. No time to build a platform.
 There is time to build **one sharp, memorable, end-to-end loop**: Scout → Analyze → graph updates live.
 Everything serves that loop. Everything else is cut until it's done.

@@ -7,7 +7,7 @@ A dashboard where a scientist sets a research goal, launches agents, and watches
 "Thoughtful Agents for Productivity."
 
 ## Time budget reality check
-**8 hours, 4 people. This is not the 24-hour version.** Everything below is pre-cut for that constraint. Do not add scope back in without removing something else first.
+**5 hours left, 4 people. This is not the 24-hour version.** Everything below is pre-cut for that constraint. Do not add scope back in without removing something else first.
 
 ## Narrow domain focus
 Low-power edge AI accelerator research under thermal and memory constraints.
@@ -83,10 +83,10 @@ Planner agent gets picked up by whoever finishes first.
 4. (If time) Click Plan Next → gap suggestion appears
 5. Close with the one-line takeaway the analysis produced
 
-## Hour-by-hour checkpoint (loose, adjust live)
-- Hour 0-1: scaffold + schema + seed data agreed and committed
-- Hour 1-3: each track builds independently against agreed interfaces
-- Hour 3-4: first integration checkpoint — does Scout write real nodes? Does Analyze produce a real artifact?
-- Hour 4-6: integrate, fix breakage, cut anything not working
-- Hour 6-7: demo script rehearsal, freeze features
-- Hour 7-8: buffer for bugs, backup recording if live demo is risky
+## Checkpoint schedule (5 hours left, loose, adjust live)
+- 0:00-0:20: scaffold + schema + seed data + interface contracts agreed and committed
+- 0:20-2:00: each track builds independently against agreed interfaces
+- 2:00-2:20: first integration checkpoint — does Scout write real nodes? Does Analyze produce a real artifact?
+- 2:20-3:40: integrate, fix breakage, cut anything not working
+- 3:40-4:20: demo script rehearsal, freeze features
+- 4:20-5:00: buffer for bugs, backup recording if live demo is risky
