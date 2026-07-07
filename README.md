@@ -24,6 +24,7 @@ Copy `.env.example` to `.env` and fill in:
 NEO4J_URI=
 NEO4J_USER=
 NEO4J_PASSWORD=
+NEO4J_DATABASE=
 DAYTONA_API_KEY=
 BUTTERBASE_APP_ID=
 NEBIUS_API_KEY=       # optional
