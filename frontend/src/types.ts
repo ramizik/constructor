@@ -99,16 +99,38 @@ export interface ChartArtifact {
 
 export type Artifact = TableArtifact | ChartArtifact;
 
-// ---- Modal params ----------------------------------------------------------
+// ---- Modal / trigger params -----------------------------------------------
 export interface ScoutParams {
-  sources: string[];
+  /**
+   * 'auto' = toggle tick: pick the next un-ingested fixed source (ROADMAP
+   * contract 2). Omit `mode` to keep the explicit one-shot list behavior.
+   */
+  mode?: 'auto';
+  sources?: string[];
   focusHint?: string;
+}
+
+export interface ScoutResult {
+  job_id: string;
+  run_id?: string;
+  nodes?: number;
+  edges?: number;
+  /** true when the fixed source pool is exhausted — frontend stops the toggle. */
+  done?: boolean;
 }
 
 export interface AnalyzeParams {
   // Locked (PHASE0_DECISIONS Q3): Pareto is primary, ranking is fallback.
   jobType: 'pareto' | 'ranking';
   note?: string;
+}
+
+// ---- Run history / trend (ROADMAP contract 2b) ----------------------------
+export interface RunHistoryPoint {
+  run_id: string;
+  created_at: string;
+  best_technique: string;
+  best_tops_w: number;
 }
 
 // ---- Service layer contract ------------------------------------------------
@@ -118,7 +140,8 @@ export interface ConstructorService {
   getFindings(): Promise<Finding[]>;
   getJobs(): Promise<Job[]>;
   getArtifact(ref: string): Promise<Artifact | null>;
-  triggerScout(params: ScoutParams): Promise<{ job_id: string }>;
+  getRunHistory(): Promise<RunHistoryPoint[]>;
+  triggerScout(params: ScoutParams): Promise<ScoutResult>;
   triggerAnalyze(params: AnalyzeParams): Promise<{ job_id: string }>;
   /** subscribe to job + graph changes; returns unsubscribe fn */
   subscribe(cb: (event: ServiceEvent) => void): () => void;

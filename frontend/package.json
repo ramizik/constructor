@@ -12,6 +12,7 @@
   "dependencies": {
     "@butterbase/sdk": "^2.8.1",
     "cytoscape": "^3.34.0",
+    "cytoscape-fcose": "^2.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

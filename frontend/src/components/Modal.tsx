@@ -1,52 +1,5 @@
 import { useState } from 'react';
-import { FIXED_SOURCES, type AnalyzeParams, type ScoutParams } from '../types';
-
-interface ScoutModalProps {
-  onClose: () => void;
-  onSubmit: (p: ScoutParams) => void;
-}
-
-export function ScoutModal({ onClose, onSubmit }: ScoutModalProps) {
-  const [sources, setSources] = useState<string[]>([...FIXED_SOURCES]);
-  const [focusHint, setFocusHint] = useState('');
-
-  const toggle = (s: string) =>
-    setSources((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
-
-  return (
-    <Shell title="Run Scout" onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-400">
-        Extract techniques, metrics & findings from fixed sources into the graph.
-      </p>
-      <div className="space-y-2">
-        {FIXED_SOURCES.map((s) => (
-          <label key={s} className="flex items-center gap-2 text-sm text-slate-200">
-            <input
-              type="checkbox"
-              checked={sources.includes(s)}
-              onChange={() => toggle(s)}
-              className="accent-sky-400"
-            />
-            {s}
-          </label>
-        ))}
-      </div>
-      <label className="mt-4 block text-xs text-slate-400">Focus hint (optional)</label>
-      <input
-        value={focusHint}
-        onChange={(e) => setFocusHint(e.target.value)}
-        placeholder="e.g. prioritize thermal techniques"
-        className="mt-1 w-full rounded bg-slate-800 px-2 py-1.5 text-sm text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-sky-500"
-      />
-      <Actions
-        onClose={onClose}
-        onSubmit={() => onSubmit({ sources, focusHint: focusHint || undefined })}
-        disabled={sources.length === 0}
-        label="Run Scout"
-      />
-    </Shell>
-  );
-}
+import { type AnalyzeParams } from '../types';
 
 interface AnalyzeModalProps {
   onClose: () => void;

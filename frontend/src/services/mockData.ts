@@ -19,7 +19,8 @@ export const seedGraph: GraphData = {
 };
 
 // Techniques Scout extracts (technique → [tops_w, memory_mb]).
-const TECHS: { id: string; name: string; src: string; srcName: string; tops: number; mem: number }[] = [
+export type Tech = { id: string; name: string; src: string; srcName: string; tops: number; mem: number };
+export const TECHS: Tech[] = [
   { id: 'tech_int4-quantization', name: 'INT4 Quantization', src: 'src_tops-per-watt-survey', srcName: 'TOPS/W Survey', tops: 4.2, mem: 1.5 },
   { id: 'tech_mixed-precision-scheduling', name: 'Mixed-Precision Scheduling', src: 'src_tops-per-watt-survey', srcName: 'TOPS/W Survey', tops: 3.1, mem: 2.4 },
   { id: 'tech_structured-sparsity', name: 'Structured Sparsity', src: 'src_edge-accelerator-thermal-2025', srcName: 'Edge Accelerator Thermal 2025', tops: 2.6, mem: 0.9 },
@@ -76,31 +77,70 @@ export const scoutFindings: Finding[] = TECHS.flatMap((t) => [
   },
 ]);
 
-export const analyzeGraph: GraphData = {
-  nodes: [
-    { id: 'exp_mock_1', label: 'Pareto Analysis Run', type: 'ExperimentRun' },
-    { id: 'artifact_mock_1', label: 'Pareto Frontier', type: 'ResultArtifact' },
-  ],
-  edges: [
-    { id: 'e_prod', source: 'exp_mock_1', target: 'artifact_mock_1', type: 'PRODUCES' },
-    ...TECHS.map((t) => ({ id: `e_test_${t.id}`, source: 'exp_mock_1', target: t.id, type: 'TESTS' as const })),
-  ],
-};
+// --- Scout auto-mode batches (ROADMAP contract 2) --------------------------
+// The toggle releases one fixed source per tick, in this order, instead of
+// dumping all three at once. Each batch mirrors the LOCKED write contract.
+const SOURCE_ORDER = [
+  'src_tops-per-watt-survey',
+  'src_edge-accelerator-thermal-2025',
+  'src_memory-constrained-inference',
+];
 
-function paretoFrontier(pts: typeof TECHS) {
+export interface ScoutBatch {
+  source: string;
+  techs: Tech[];
+  graph: GraphData;
+  findings: Finding[];
+}
+
+export const scoutBatches: ScoutBatch[] = SOURCE_ORDER.map((src) => {
+  const techs = TECHS.filter((t) => t.src === src);
+  const graph: GraphData = {
+    nodes: [
+      ...techs.map((t) => ({ id: t.id, label: t.name, type: 'Technique' as const })),
+      { id: src, label: techs[0].srcName, type: 'Source' as const },
+      ...techs.flatMap((t) => [
+        { id: `find_${t.id}_tops`, label: `${t.tops} TOPS/W`, type: 'Finding' as const },
+        { id: `find_${t.id}_mem`, label: `${t.mem} MB`, type: 'Finding' as const },
+      ]),
+    ],
+    edges: [
+      ...techs.map((t) => ({ id: `e_addr_${t.id}`, source: t.id, target: 'goal_main', type: 'ADDRESSES' as const })),
+      ...techs.map((t) => ({ id: `e_imp_${t.id}`, source: t.id, target: 'metric_tops-w', type: 'IMPROVES' as const })),
+      ...techs.map((t) => ({ id: `e_hurt_${t.id}`, source: t.id, target: 'metric_memory-mb', type: 'HURTS' as const })),
+      ...techs.flatMap((t) => [
+        { id: `e_f1_${t.id}`, source: `find_${t.id}_tops`, target: t.src, type: 'EXTRACTED_FROM' as const },
+        { id: `e_f2_${t.id}`, source: `find_${t.id}_tops`, target: t.id, type: 'SUPPORTS' as const },
+        { id: `e_f3_${t.id}`, source: `find_${t.id}_mem`, target: t.src, type: 'EXTRACTED_FROM' as const },
+        { id: `e_f4_${t.id}`, source: `find_${t.id}_mem`, target: t.id, type: 'SUPPORTS' as const },
+      ]),
+    ],
+  };
+  const findings = scoutFindings.filter((f) => techs.some((t) => f.id.startsWith(`find_${t.id}_`)));
+  return { source: src, techs, graph, findings };
+});
+
+// --- Analyze artifact builders (per-run, ROADMAP contract 2b) --------------
+// Each Analyze click is a NEW run over whatever techniques are known so far,
+// so the frontier/ranking visibly shifts as Scout adds sources.
+export function paretoFrontierOf(pts: Tech[]): Tech[] {
   return pts.filter(
     (p) => !pts.some((q) => q !== p && q.tops >= p.tops && q.mem <= p.mem && (q.tops > p.tops || q.mem < p.mem)),
   );
 }
 
-function paretoSvg(): string {
+export function bestByTops(pts: Tech[]): Tech {
+  return pts.reduce((a, b) => (b.tops > a.tops ? b : a));
+}
+
+function paretoSvgOf(pts: Tech[]): string {
   const W = 420, H = 300, pad = 44;
-  const frontier = new Set(paretoFrontier(TECHS));
-  const xMax = Math.max(...TECHS.map((t) => t.mem)) * 1.1;
-  const yMax = Math.max(...TECHS.map((t) => t.tops)) * 1.1;
+  const frontier = new Set(paretoFrontierOf(pts));
+  const xMax = Math.max(...pts.map((t) => t.mem), 1) * 1.1;
+  const yMax = Math.max(...pts.map((t) => t.tops), 1) * 1.1;
   const sx = (v: number) => pad + (v / xMax) * (W - 2 * pad);
   const sy = (v: number) => H - pad - (v / yMax) * (H - 2 * pad);
-  const dots = TECHS.map((t) => {
+  const dots = pts.map((t) => {
     const on = frontier.has(t);
     return (
       `<circle cx="${sx(t.mem).toFixed(1)}" cy="${sy(t.tops).toFixed(1)}" r="${on ? 6 : 4}" fill="${on ? '#38bdf8' : '#64748b'}"/>` +
@@ -119,9 +159,41 @@ function paretoSvg(): string {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 
-export const analyzeArtifact: Artifact = {
-  kind: 'chart',
-  title: 'Pareto Frontier — TOPS/W (↑) vs Memory (↓)',
-  image_url: paretoSvg(),
-  takeaway: `${paretoFrontier(TECHS).map((t) => t.name).join(', ')} dominate the efficiency/memory tradeoff.`,
-};
+export function buildAnalyzeArtifact(pts: Tech[], runLabel: string): Artifact {
+  return {
+    kind: 'chart',
+    title: `Pareto Frontier — TOPS/W (↑) vs Memory (↓) · ${runLabel}`,
+    image_url: paretoSvgOf(pts),
+    takeaway: `${paretoFrontierOf(pts).map((t) => t.name).join(', ')} dominate the efficiency/memory tradeoff.`,
+  };
+}
+
+export function buildRankingArtifact(pts: Tech[], runLabel: string): Artifact {
+  const sorted = [...pts].sort((a, b) => b.tops - a.tops);
+  return {
+    kind: 'table',
+    title: `Comparative Ranking — TOPS/W · ${runLabel}`,
+    columns: ['Technique', 'TOPS/W', 'Memory (MB)'],
+    rows: sorted.map((t) => [t.name, t.tops, t.mem]),
+    takeaway: `${sorted[0].name} leads on TOPS/W at ${sorted[0].tops}.`,
+  };
+}
+
+export function buildAnalyzeGraph(runN: number, pts: Tech[]): { graph: GraphData; expId: string; artId: string } {
+  const expId = `exp_mock_${runN}`;
+  const artId = `artifact_mock_${runN}`;
+  return {
+    expId,
+    artId,
+    graph: {
+      nodes: [
+        { id: expId, label: `Pareto Run #${runN}`, type: 'ExperimentRun' },
+        { id: artId, label: 'Pareto Frontier', type: 'ResultArtifact' },
+      ],
+      edges: [
+        { id: `e_prod_${runN}`, source: expId, target: artId, type: 'PRODUCES' },
+        ...pts.map((t) => ({ id: `e_test_${runN}_${t.id}`, source: expId, target: t.id, type: 'TESTS' as const })),
+      ],
+    },
+  };
+}

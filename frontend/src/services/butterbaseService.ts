@@ -6,7 +6,9 @@ import type {
   Finding,
   GraphData,
   Job,
+  RunHistoryPoint,
   ScoutParams,
+  ScoutResult,
   ServiceEvent,
 } from '../types';
 
@@ -43,8 +45,17 @@ export class ButterbaseService implements ConstructorService {
   async getArtifact(ref: string) {
     return this.invoke<Artifact | null>('get-artifact', { ref });
   }
+  async getRunHistory() {
+    // get-run-history is a stretch Function (ROADMAP contract 2b) that may not
+    // be deployed yet — degrade to an empty trend rather than breaking the UI.
+    try {
+      return await this.invoke<RunHistoryPoint[]>('get-run-history');
+    } catch {
+      return [];
+    }
+  }
   async triggerScout(params: ScoutParams) {
-    return this.invoke<{ job_id: string }>('trigger-scout', params);
+    return this.invoke<ScoutResult>('trigger-scout', params);
   }
   async triggerAnalyze(params: AnalyzeParams) {
     return this.invoke<{ job_id: string }>('trigger-analyze', params);
