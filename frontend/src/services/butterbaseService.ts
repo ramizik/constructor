@@ -53,23 +53,10 @@ export class ButterbaseService implements ConstructorService {
     return this.invoke<Job[]>('get-jobs');
   }
   async getArtifact(ref: string) {
-    // Older/stale job rows can point at a ResultArtifact id that's no
-    // longer in Neo4j (404) — degrade to null instead of an unhandled
-    // rejection that blanks the panel on an otherwise-fine run history click.
-    try {
-      return await this.invoke<Artifact | null>('get-artifact', { ref });
-    } catch {
-      return null;
-    }
+    return this.invoke<Artifact | null>('get-artifact', { ref });
   }
   async getRunHistory() {
-    // get-run-history is a stretch Function (ROADMAP contract 2b) that may not
-    // be deployed yet — degrade to an empty trend rather than breaking the UI.
-    try {
-      return await this.invoke<RunHistoryPoint[]>('get-run-history');
-    } catch {
-      return [];
-    }
+    return this.invoke<RunHistoryPoint[]>('get-run-history');
   }
   async triggerScout(params: ScoutParams) {
     return this.invoke<ScoutResult>('trigger-scout', params);

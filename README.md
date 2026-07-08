@@ -34,7 +34,7 @@ Every run is kept, not overwritten — the right panel is a navigable history of
 | **Neo4j** (Aura) | The graph itself — `ResearchGoal`, `Technique`, `Metric`, `Finding`, `Source`, `ExperimentRun`, `ResultArtifact` nodes, connected by `SUPPORTS`, `EXTRACTED_FROM`, `TESTS`, `PRODUCES`, `IMPROVES`/`HURTS`. Every Scout tick and every Analyze run is a real Cypher write via Aura's HTTP Query API v2 — nothing in the graph is faked for the demo. |
 | **Butterbase** | The backend backbone. Six serverless Functions (`get-graph`, `get-findings`, `get-jobs`, `get-artifact`, `get-run-history`, `trigger-scout`, `trigger-analyze`) are the only surface the frontend talks to — they read/write Neo4j and track job state, and the built frontend is deployed on Butterbase's static hosting too. |
 | **Daytona** | The execution sandbox. Each technique gets its own isolated Python sandbox (`daytona.create({language:'python'})`) running a real Monte-Carlo simulation (500 samples, Gaussian noise) over its TOPS/W and Memory figures, then the sandbox is torn down. This is the only place actual computation happens outside the graph. |
-| **RocketRide** | The orchestrator between Scout and Analyst — organizer-mandated, deployed as a managed RocketRide Cloud pipeline. `trigger-analyze` never calls Daytona directly; it POSTs to the RocketRide pipeline, which re-runs Scout (freshens the graph) and drives the real Daytona job via a tunneled HTTP server, then hands back the artifact. A deterministic local fallback covers the case where the pipeline is unreachable, so the demo never hard-fails. |
+| **RocketRide** | The orchestrator between Scout and Analyst — organizer-mandated, deployed as a managed RocketRide Cloud pipeline. `trigger-analyze` never calls Daytona directly; it POSTs to the RocketRide pipeline, which re-runs Scout (freshens the graph) and drives the real Daytona job via a tunneled HTTP server, then hands back the artifact. Required — if the pipeline is unreachable, Analyze fails loudly rather than faking a result. |
 
 ---
 
@@ -55,7 +55,7 @@ Sources are a fixed, pre-picked set (not live web crawling) — deliberate, for 
 4. For each technique, in parallel: spin up a Daytona sandbox, run a Monte-Carlo simulation (500 samples, 5% relative std) over its TOPS/W and Memory_MB, tear the sandbox down.
 5. Compute the Pareto frontier (non-dominated techniques on TOPS/W↑ vs Memory↓), build a chart/table artifact + one-line takeaway.
 6. RocketRide returns the `Artifact` JSON; `trigger-analyze` writes a new `ExperimentRun`/`ResultArtifact` into Neo4j and marks the job done.
-7. **Fallback:** if the RocketRide URL is unset/unreachable, `trigger-analyze` computes the same Pareto frontier deterministically in-function (no sandbox) and writes the same graph shape back — so the loop never breaks live, but the chart in that case is not a sandboxed result.
+7. If `ROCKETRIDE_PIPELINE_URL` is unset or the pipeline call fails, `trigger-analyze` throws and the job is marked `error` — there's no local substitute artifact.
 
 ---
 
@@ -71,7 +71,7 @@ Sources are a fixed, pre-picked set (not live web crawling) — deliberate, for 
 /frontend    React app — graph canvas, goal/scout/analyze panel, run history panel
 /backend     Butterbase functions (Neo4j reads/writes), Daytona job server + batch simulation
 /graph       Neo4j schema + seed data
-/docs        Full spec (PROJECT_IDEA.md), demo script (DEMO.md), architecture notes
+/docs        Roadmap — current status + next steps
 ```
 
 ## Setup
@@ -82,4 +82,4 @@ Sources are a fixed, pre-picked set (not live web crawling) — deliberate, for 
 5. Deploy Butterbase functions; `manage_function update_env` to set `NEO4J_QUERY_URL`, `NEO4J_USER`, `NEO4J_PASSWORD`, and `ROCKETRIDE_PIPELINE_URL` on `trigger-analyze` (redeploying a function wipes its env — always re-set after redeploy).
 6. `cd frontend && npm run dev`, or deploy via Butterbase static hosting.
 
-See [PROJECT_IDEA.md](./docs/PROJECT_IDEA.md) for full scope/cuts, [DEMO.md](./docs/DEMO.md) for the exact click-by-click demo script, and [CLAUDE.md](./CLAUDE.md) for locked architecture decisions.
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for current implementation status and next steps, and [CLAUDE.md](./CLAUDE.md) for locked architecture decisions.

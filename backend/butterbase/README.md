@@ -39,21 +39,20 @@ export DAYTONA_API_KEY="..."                                # optional
 - **Logan / Neo4j:** `lib/neo4j.ts` `readGraph()` assumes each node has `id`,
   a name-ish property, and a single label matching `NodeType`. If the seed
   schema differs, adjust the RETURN clauses there — nothing else changes.
-- **Ramis + Rohan / RocketRide (organizer-mandated, joint):** `trigger-analyze.ts`
-  POSTs `{ jobType, data }` to `ROCKETRIDE_PIPELINE_URL` and expects an
-  `Artifact` back (`kind: 'table' | 'chart'`). The pipeline is the thing that
-  actually starts/monitors the Daytona job now — this function no longer
-  calls Daytona directly. If `ROCKETRIDE_PIPELINE_URL` is unset, it uses a
-  deterministic fallback so the demo never hard-fails. **To go live once the
-  pipeline is deployed to RocketRide Cloud: just set the env var on the
-  deployed function** — `manage_function` (action `update_env`) with
-  `{ ROCKETRIDE_PIPELINE_URL: "<endpoint>" }`, or `butterbase functions env set`
-  if using the CLI path. No code change or redeploy needed.
+- **RocketRide:** `trigger-analyze.ts` POSTs `{ jobType, data }` to
+  `ROCKETRIDE_PIPELINE_URL` and expects an `Artifact` back (`kind: 'table' |
+  'chart'`). The pipeline starts/monitors the Daytona job — this function
+  never calls Daytona directly. **`ROCKETRIDE_PIPELINE_URL` is required —
+  there is no local fallback.** If it's unset or the pipeline call fails,
+  the analyze job throws and is marked `error`. Set the env var on the
+  deployed function via `manage_function` (action `update_env`) with
+  `{ ROCKETRIDE_PIPELINE_URL: "<relay endpoint>" }`, or `butterbase functions
+  env set` on the CLI path — the relay (`backend/src/rocketride/relay.ts`)
+  must also be running.
 
 ## Frontend switch
-Once deployed, set in `frontend/.env.local`:
+Set in `frontend/.env.local` (required — the frontend has no mock/demo mode):
 ```
-VITE_USE_BUTTERBASE=true
 VITE_BUTTERBASE_APP_ID=app_xxx
 VITE_BUTTERBASE_ANON_KEY=...
 ```

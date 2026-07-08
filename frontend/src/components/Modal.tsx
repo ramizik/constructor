@@ -22,7 +22,7 @@ export function AnalyzeModal({ onClose, onSubmit }: AnalyzeModalProps) {
         className="mt-1 w-full rounded bg-white px-2 py-1.5 text-sm text-slate-800 outline-none ring-1 ring-slate-300 focus:ring-sky-500"
       >
         <option value="pareto">Pareto chart (TOPS/W vs Memory)</option>
-        <option value="ranking">Comparative ranking table (fallback)</option>
+        <option value="ranking">Comparative ranking table</option>
       </select>
       <label className="mt-4 block text-xs text-slate-500">Note (optional)</label>
       <input

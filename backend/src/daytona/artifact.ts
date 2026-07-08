@@ -6,10 +6,8 @@ export type Artifact =
 
 type DoneResult = Extract<SimulationResult, { status: "done" }>;
 
-// Renders the real Daytona-computed Monte-Carlo means as an SVG scatter,
-// same visual contract as trigger-analyze.ts's fallbackArtifact() so the
-// pipeline swap is a drop-in. Frontier points get an error-bar cross from
-// the simulated CI95 range — the one piece the deterministic fallback can't produce.
+// Renders the real Daytona-computed Monte-Carlo means as an SVG scatter.
+// Frontier points get an error-bar cross from the simulated CI95 range.
 export function toArtifact(job: AnalyzeJobResult, jobType: "pareto" | "ranking"): Artifact {
   const done = job.results.filter((r): r is DoneResult => r.status === "done");
 

@@ -120,7 +120,9 @@ export interface ScoutResult {
 }
 
 export interface AnalyzeParams {
-  // Locked (PHASE0_DECISIONS Q3): Pareto is primary, ranking is fallback.
+  // Pareto is the primary job type; ranking is a real alternate analysis
+  // mode (both are computed by the same Daytona/RocketRide job, not a
+  // degraded substitute).
   jobType: 'pareto' | 'ranking';
   note?: string;
 }
@@ -134,7 +136,8 @@ export interface RunHistoryPoint {
 }
 
 // ---- Service layer contract ------------------------------------------------
-// The whole app talks to this interface. Mock impl now, Butterbase impl later.
+// The whole app talks to this interface. ButterbaseService is the only
+// implementation — no mock/demo path.
 export interface ConstructorService {
   getGraph(): Promise<GraphData>;
   getFindings(): Promise<Finding[]>;
